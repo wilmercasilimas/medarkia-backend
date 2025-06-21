@@ -22,6 +22,10 @@ app.use("/api/protegida", rutaProtegida);
 const pacienteRoutes = require("./src/routes/paciente");
 app.use("/api/pacientes", pacienteRoutes);
 
+const especialidadRoutes = require("./src/routes/especialidad");
+app.use("/api/especialidades", especialidadRoutes);
+
+
 // Ruta de prueba
 app.get("/api/test", (req, res) => {
   res.json({ message: "Servidor Medarkia activo ✅" });

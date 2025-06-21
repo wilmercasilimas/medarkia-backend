@@ -1,4 +1,8 @@
 const validarRol = (...rolesPermitidos) => {
+  if (!rolesPermitidos.length) {
+    throw new Error("Debes especificar al menos un rol permitido.");
+  }
+
   return (req, res, next) => {
     const rolUsuario = req.user?.rol;
 

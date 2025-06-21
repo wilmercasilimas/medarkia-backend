@@ -43,7 +43,7 @@ const login = async (req, res) => {
     const token = jwt.sign(
       { id: usuario._id, rol: usuario.rol },
       process.env.JWT_SECRET,
-      { expiresIn: "2h" }
+      { expiresIn: "30d" } // ⏳ Token válido por 30 días
     );
 
     res.json({
