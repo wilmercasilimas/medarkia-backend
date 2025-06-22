@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
+const User = require("../modules/user/User"); // Ajusta la ruta si es necesario
 
-const auth = (req, res, next) => {
+const auth = async (req, res, next) => {
   const token = req.header("Authorization");
 
   if (!token) {
@@ -9,7 +10,13 @@ const auth = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token.replace("Bearer ", ""), process.env.JWT_SECRET);
-    req.user = decoded; // { id, rol, iat, exp }
+    
+    const usuario = await User.findById(decoded.id).select("-password");
+    if (!usuario) {
+      return res.status(401).json({ message: "Usuario no válido." });
+    }
+
+    req.user = usuario; // ✅ Ahora tienes acceso a ._id, .rol, etc.
     next();
   } catch (error) {
     return res.status(401).json({ message: "Token inválido." });

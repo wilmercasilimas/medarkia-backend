@@ -4,10 +4,12 @@ const validarRol = (...rolesPermitidos) => {
   }
 
   return (req, res, next) => {
-    const rolUsuario = req.user?.rol;
+    const rolUsuario = req.user?.rol; // ✅ Aquí está el cambio
 
     if (!rolesPermitidos.includes(rolUsuario)) {
-      return res.status(403).json({ message: "Acceso denegado: rol no autorizado." });
+      return res
+        .status(403)
+        .json({ message: "Acceso denegado: rol no autorizado." });
     }
 
     next();
