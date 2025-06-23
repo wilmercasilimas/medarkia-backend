@@ -10,7 +10,9 @@ const crearUsuario = async (req, res) => {
     if (!nombre || !apellido || !email || !password || !telefono) {
       return res
         .status(400)
-        .json({ message: "Todos los campos obligatorios deben estar completos." });
+        .json({
+          message: "Todos los campos obligatorios deben estar completos.",
+        });
     }
 
     const existeUsuario = await User.findOne({ email });
@@ -30,7 +32,7 @@ const crearUsuario = async (req, res) => {
       telefono,
       rol,
       avatar,
-      creado_por: req.usuario?._id || null,
+      creado_por: req.user?._id || null,
     });
 
     await nuevoUsuario.save();
@@ -69,7 +71,8 @@ const actualizarUsuario = async (req, res) => {
   try {
     const { id } = req.params;
     const usuario = await User.findById(id);
-    if (!usuario) return res.status(404).json({ message: "Usuario no encontrado." });
+    if (!usuario)
+      return res.status(404).json({ message: "Usuario no encontrado." });
 
     const { nombre, apellido, email, password, telefono, rol } = req.body;
 
@@ -84,7 +87,7 @@ const actualizarUsuario = async (req, res) => {
       usuario.avatar = await procesarAvatar(req.file, usuario.avatar);
     }
 
-    usuario.editado_por = req.usuario?._id || null;
+    usuario.editado_por = req.user?._id || null;
 
     await usuario.save();
 
@@ -129,7 +132,8 @@ const eliminarUsuario = async (req, res) => {
     const { id } = req.params;
 
     const usuario = await User.findById(id);
-    if (!usuario) return res.status(404).json({ message: "Usuario no encontrado." });
+    if (!usuario)
+      return res.status(404).json({ message: "Usuario no encontrado." });
 
     const publicId = usuario.avatar?.public_id;
     if (publicId && !publicId.includes("default")) {
