@@ -1,24 +1,21 @@
 const cloudinary = require("cloudinary").v2;
 const fs = require("fs");
 
-// Configuración de Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// ✅ Subir imagen
 const subirImagen = async (archivoPath) => {
   try {
     const resultado = await cloudinary.uploader.upload(archivoPath, {
       folder: "medarkia/usuarios",
       use_filename: true,
       unique_filename: false,
-      overwrite: true, // ✅ evita acumulación de imágenes
+      overwrite: true,
     });
 
-    // Eliminar archivo temporal local
     if (fs.existsSync(archivoPath)) {
       fs.unlinkSync(archivoPath);
     }
@@ -33,7 +30,6 @@ const subirImagen = async (archivoPath) => {
   }
 };
 
-// ✅ Eliminar imagen por public_id
 const eliminarImagen = async (publicId) => {
   try {
     if (publicId) {
@@ -44,7 +40,6 @@ const eliminarImagen = async (publicId) => {
   }
 };
 
-// ✅ Extraer public_id desde URL completa
 const obtenerPublicIdDesdeUrl = (url) => {
   try {
     const match = url.match(/upload\/(?:v\d+\/)?(.+)\.[a-zA-Z]+$/);
