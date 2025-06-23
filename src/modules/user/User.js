@@ -13,6 +13,12 @@ const userSchema = new mongoose.Schema(
       required: [true, "El apellido es obligatorio"],
       trim: true,
     },
+    cedula: {
+      type: String,
+      required: [true, "La cédula es obligatoria."],
+      unique: true,
+      trim: true,
+    },
     email: {
       type: String,
       required: [true, "El email es obligatorio"],

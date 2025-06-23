@@ -5,14 +5,12 @@ const { procesarAvatar } = require("../../helpers/gestorAvatar");
 // Crear nuevo usuario
 const crearUsuario = async (req, res) => {
   try {
-    const { nombre, apellido, email, password, telefono, rol } = req.body;
+    const { nombre, apellido, cedula, email, password, telefono, rol } = req.body;
 
-    if (!nombre || !apellido || !email || !password || !telefono) {
-      return res
-        .status(400)
-        .json({
-          message: "Todos los campos obligatorios deben estar completos.",
-        });
+    if (!nombre || !apellido || !email || !password || !telefono || !cedula) {
+      return res.status(400).json({
+        message: "Todos los campos obligatorios deben estar completos.",
+      });
     }
 
     const existeUsuario = await User.findOne({ email });
@@ -20,15 +18,14 @@ const crearUsuario = async (req, res) => {
       return res.status(409).json({ message: "El email ya está registrado." });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-
     const avatar = await procesarAvatar(req.file, null);
 
     const nuevoUsuario = new User({
       nombre,
       apellido,
+      cedula,
       email,
-      password: hashedPassword,
+      password, // ❗️ Ya no se hashea aquí
       telefono,
       rol,
       avatar,
@@ -43,6 +40,7 @@ const crearUsuario = async (req, res) => {
         id: nuevoUsuario._id,
         nombre: nuevoUsuario.nombre,
         apellido: nuevoUsuario.apellido,
+        cedula: nuevoUsuario.cedula,
         email: nuevoUsuario.email,
         telefono: nuevoUsuario.telefono,
         rol: nuevoUsuario.rol,
@@ -54,6 +52,7 @@ const crearUsuario = async (req, res) => {
     res.status(500).json({ message: "Error al crear el usuario." });
   }
 };
+
 
 // Listar usuarios
 const listarUsuarios = async (_req, res) => {
@@ -135,6 +134,21 @@ const eliminarUsuario = async (req, res) => {
     if (!usuario)
       return res.status(404).json({ message: "Usuario no encontrado." });
 
+    // 🔒 Regla 1: No permitir eliminar a wilmercasilimas@gmail.com
+    if (usuario.email === "wilmercasilimas@gmail.com") {
+      return res.status(403).json({ message: "Este usuario no puede ser eliminado." });
+    }
+
+    // 🔒 Regla 2: Asegurar que siempre queden al menos 2 admins
+    if (usuario.rol === "admin") {
+      const admins = await User.find({ rol: "admin" });
+      if (admins.length <= 2) {
+        return res.status(403).json({
+          message: "Debe haber al menos 2 administradores activos. No se puede eliminar este usuario.",
+        });
+      }
+    }
+
     const publicId = usuario.avatar?.public_id;
     if (publicId && !publicId.includes("default")) {
       const { eliminarImagen } = require("../../helpers/cloudinaryHelper");
@@ -149,6 +163,7 @@ const eliminarUsuario = async (req, res) => {
     res.status(500).json({ message: "Error al eliminar el usuario." });
   }
 };
+
 
 module.exports = {
   crearUsuario,

@@ -15,13 +15,16 @@ conectarDB();
 // Rutas implementadas
 app.use("/api/usuarios", require("./src/modules/user/userRoutes"));
 app.use("/api/auth", require("./src/modules/auth/authRoutes"));
-app.use("/api/especialidades", require("./src/modules/especialidad/especialidadRoutes")); // ✅ Habilitado
+app.use(
+  "/api/especialidades",
+  require("./src/modules/especialidad/especialidadRoutes")
+); // ✅ Habilitado
 app.use("/api/doctores", require("./src/modules/doctor/doctorRoutes"));
+app.use("/api/pacientes", require("./src/modules/paciente/pacienteRoutes"));
 
 // Rutas de configuración inicial (solo para desarrollo)
 // Esta ruta es para crear el usuario admin y la especialidad "Medicina General" al
 app.use("/api/setup", require("./src/modules/setup/setupRoutes"));
-
 
 // Futuras rutas
 // app.use("/api/pacientes", require("./src/modules/paciente/pacienteRoutes"));
