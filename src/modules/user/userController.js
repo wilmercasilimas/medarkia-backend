@@ -1,12 +1,12 @@
 const User = require("./User");
 const bcrypt = require("bcrypt");
+const mongoose = require("mongoose");
 const { procesarAvatar } = require("../../helpers/gestorAvatar");
 
 // Crear nuevo usuario
 const crearUsuario = async (req, res) => {
   try {
-    const { nombre, apellido, cedula, email, password, telefono, rol } =
-      req.body;
+    const { nombre, apellido, cedula, email, password, telefono, rol } = req.body;
 
     if (!nombre || !apellido || !email || !password || !telefono || !cedula) {
       return res.status(400).json({
@@ -26,7 +26,8 @@ const crearUsuario = async (req, res) => {
       apellido,
       cedula,
       email,
-      password, // ❗️ Ya no se hashea aquí
+      password,
+      telefono,
       telefono,
       rol,
       avatar,
@@ -76,9 +77,15 @@ const listarUsuarios = async (req, res) => {
 const actualizarUsuario = async (req, res) => {
   try {
     const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "ID inválido." });
+    }
+
     const usuario = await User.findById(id);
-    if (!usuario)
+    if (!usuario) {
       return res.status(404).json({ message: "Usuario no encontrado." });
+    }
 
     const { nombre, apellido, email, password, telefono, rol } = req.body;
 
@@ -108,6 +115,11 @@ const actualizarUsuario = async (req, res) => {
 const actualizarAvatar = async (req, res) => {
   try {
     const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "ID inválido." });
+    }
+
     const archivo = req.file;
 
     if (!archivo) {
@@ -137,24 +149,24 @@ const eliminarUsuario = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const usuario = await User.findById(id);
-    if (!usuario)
-      return res.status(404).json({ message: "Usuario no encontrado." });
-
-    // 🔒 Regla 1: No permitir eliminar a wilmercasilimas@gmail.com
-    if (usuario.email === "wilmercasilimas@gmail.com") {
-      return res
-        .status(403)
-        .json({ message: "Este usuario no puede ser eliminado." });
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "ID inválido." });
     }
 
-    // 🔒 Regla 2: Asegurar que siempre queden al menos 2 admins
+    const usuario = await User.findById(id);
+    if (!usuario) {
+      return res.status(404).json({ message: "Usuario no encontrado." });
+    }
+
+    if (usuario.email === "wilmercasilimas@gmail.com") {
+      return res.status(403).json({ message: "Este usuario no puede ser eliminado." });
+    }
+
     if (usuario.rol === "admin") {
       const admins = await User.find({ rol: "admin" });
       if (admins.length <= 2) {
         return res.status(403).json({
-          message:
-            "Debe haber al menos 2 administradores activos. No se puede eliminar este usuario.",
+          message: "Debe haber al menos 2 administradores activos. No se puede eliminar este usuario.",
         });
       }
     }

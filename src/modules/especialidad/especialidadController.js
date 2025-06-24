@@ -1,5 +1,6 @@
 const Especialidad = require("./Especialidad");
 const Doctor = require("../doctor/Doctor");
+const mongoose = require("mongoose");
 
 // ✅ Crear nueva especialidad (solo admin)
 const crearEspecialidad = async (req, res) => {
@@ -8,16 +9,23 @@ const crearEspecialidad = async (req, res) => {
 
     const existe = await Especialidad.findOne({ nombre });
     if (existe) {
-      return res.status(400).json({ message: "Ya existe una especialidad con ese nombre." });
+      return res
+        .status(400)
+        .json({ message: "Ya existe una especialidad con ese nombre." });
     }
 
     const nueva = new Especialidad({ nombre, descripcion });
     await nueva.save();
 
-    res.status(201).json({ message: "Especialidad creada correctamente.", especialidad: nueva });
+    res.status(201).json({
+      message: "Especialidad creada correctamente.",
+      especialidad: nueva,
+    });
   } catch (error) {
     console.error("Error al crear especialidad:", error);
-    res.status(500).json({ message: "Error interno al crear la especialidad." });
+    res
+      .status(500)
+      .json({ message: "Error interno al crear la especialidad." });
   }
 };
 
@@ -71,7 +79,9 @@ const listarEspecialidadesConDoctores = async (_req, res) => {
     res.json(Object.values(agrupadas));
   } catch (error) {
     console.error("❌ Error al obtener especialidades con doctores:", error);
-    res.status(500).json({ message: "Error al obtener especialidades detalladas." });
+    res
+      .status(500)
+      .json({ message: "Error al obtener especialidades detalladas." });
   }
 };
 
@@ -79,6 +89,10 @@ const listarEspecialidadesConDoctores = async (_req, res) => {
 const editarEspecialidad = async (req, res) => {
   try {
     const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "ID de especialidad inválido." });
+    }
+
     const { nombre, descripcion } = req.body;
 
     const especialidad = await Especialidad.findById(id);
@@ -102,6 +116,9 @@ const editarEspecialidad = async (req, res) => {
 const eliminarEspecialidad = async (req, res) => {
   try {
     const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "ID de especialidad inválido." });
+    }
 
     const especialidad = await Especialidad.findById(id);
     if (!especialidad) {

@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const Paciente = require("./Paciente");
 const User = require("../user/User");
 const Doctor = require("../doctor/Doctor");
@@ -8,9 +9,11 @@ const crearPaciente = async (req, res) => {
     const { usuario, doctorAsignado, observaciones } = req.body;
 
     if (!usuario) {
-      return res
-        .status(400)
-        .json({ message: "El ID del usuario es obligatorio." });
+      return res.status(400).json({ message: "El ID del usuario es obligatorio." });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(usuario)) {
+      return res.status(400).json({ message: "ID de usuario inválido." });
     }
 
     const user = await User.findById(usuario);
@@ -19,9 +22,7 @@ const crearPaciente = async (req, res) => {
 
     const yaEsPaciente = await Paciente.findOne({ usuario });
     if (yaEsPaciente) {
-      return res
-        .status(400)
-        .json({ message: "Este usuario ya está registrado como paciente." });
+      return res.status(400).json({ message: "Este usuario ya está registrado como paciente." });
     }
 
     const nuevoPaciente = new Paciente({
@@ -33,12 +34,10 @@ const crearPaciente = async (req, res) => {
 
     await nuevoPaciente.save();
 
-    res
-      .status(201)
-      .json({
-        message: "Paciente creado correctamente.",
-        paciente: nuevoPaciente,
-      });
+    res.status(201).json({
+      message: "Paciente creado correctamente.",
+      paciente: nuevoPaciente,
+    });
   } catch (error) {
     console.error("❌ Error al crear paciente:", error);
     res.status(500).json({ message: "Error al crear paciente." });
@@ -55,9 +54,7 @@ const listarPacientes = async (req, res) => {
     if (req.user.rol === "doctor") {
       const doctor = await Doctor.findOne({ usuario: req.user._id });
       if (!doctor)
-        return res
-          .status(403)
-          .json({ message: "No eres un doctor registrado." });
+        return res.status(403).json({ message: "No eres un doctor registrado." });
       filtro.doctorAsignado = doctor._id;
     }
 
@@ -69,12 +66,8 @@ const listarPacientes = async (req, res) => {
     if (nombre || apellido || cedula) {
       pacientes = pacientes.filter(
         (p) =>
-          (!nombre ||
-            p.usuario?.nombre?.toLowerCase().includes(nombre.toLowerCase())) &&
-          (!apellido ||
-            p.usuario?.apellido
-              ?.toLowerCase()
-              .includes(apellido.toLowerCase())) &&
+          (!nombre || p.usuario?.nombre?.toLowerCase().includes(nombre.toLowerCase())) &&
+          (!apellido || p.usuario?.apellido?.toLowerCase().includes(apellido.toLowerCase())) &&
           (!cedula || p.usuario?.cedula === cedula)
       );
     }
@@ -90,6 +83,11 @@ const listarPacientes = async (req, res) => {
 const editarPaciente = async (req, res) => {
   try {
     const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "ID del paciente inválido." });
+    }
+
     const { doctorAsignado, estado, observaciones } = req.body;
 
     const paciente = await Paciente.findById(id);
@@ -116,11 +114,14 @@ const eliminarPaciente = async (req, res) => {
   try {
     const { id } = req.params;
 
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "ID del paciente inválido." });
+    }
+
     const paciente = await Paciente.findById(id).populate("usuario");
     if (!paciente)
       return res.status(404).json({ message: "Paciente no encontrado." });
 
-    // ⚠️ Si se desea, también puede eliminarse el User relacionado (como en doctorController)
     await paciente.deleteOne();
 
     res.json({ message: "Paciente eliminado correctamente." });

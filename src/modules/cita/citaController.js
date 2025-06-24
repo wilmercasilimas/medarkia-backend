@@ -2,7 +2,7 @@ const Cita = require("./Cita");
 const Doctor = require("../doctor/Doctor");
 const Paciente = require("../paciente/Paciente");
 const Especialidad = require("../especialidad/Especialidad");
-const { enviarNotificacionCita } = require("./notificarCita"); // Esqueleto
+const { enviarNotificacionCita } = require("./notificarCita");
 const mongoose = require("mongoose");
 const User = require("../user/User");
 
@@ -23,10 +23,18 @@ const crearCita = async (req, res) => {
       return res.status(400).json({ message: "Faltan campos obligatorios." });
     }
 
-    // Validar solapamiento
+    if (!mongoose.Types.ObjectId.isValid(paciente) || !mongoose.Types.ObjectId.isValid(doctor)) {
+      return res.status(400).json({ message: "ID de paciente o doctor inválido." });
+    }
+
+    const fechaObj = new Date(fecha);
+    if (isNaN(fechaObj)) {
+      return res.status(400).json({ message: "Formato de fecha inválido." });
+    }
+
     const conflicto = await Cita.findOne({
       doctor,
-      fecha: new Date(fecha),
+      fecha: fechaObj,
       $or: [{ horaInicio: { $lt: horaFin }, horaFin: { $gt: horaInicio } }],
     });
 
@@ -36,7 +44,6 @@ const crearCita = async (req, res) => {
         .json({ message: "Ya existe una cita en ese horario para el doctor." });
     }
 
-    // Si no se envía especialidad, usar la del doctor
     let especialidadFinal = especialidad;
     if (!especialidad) {
       const doctorObj = await Doctor.findById(doctor);
@@ -57,29 +64,28 @@ const crearCita = async (req, res) => {
     });
 
     await nuevaCita.save();
-
-    // 🔔 Enviar notificación (paciente y doctor)
     await enviarNotificacionCita(nuevaCita);
 
-    res
-      .status(201)
-      .json({ message: "Cita creada correctamente.", cita: nuevaCita });
+    res.status(201).json({ message: "Cita creada correctamente.", cita: nuevaCita });
   } catch (error) {
     console.error("❌ Error al crear cita:", error);
     res.status(500).json({ message: "Error al crear cita." });
   }
 };
+
 // Editar cita
 const editarCita = async (req, res) => {
   try {
     const { id } = req.params;
-    const { fecha, horaInicio, horaFin, doctor, observaciones, estado } =
-      req.body;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "ID de cita inválido." });
+    }
+
+    const { fecha, horaInicio, horaFin, doctor, observaciones, estado } = req.body;
 
     const cita = await Cita.findById(id);
     if (!cita) return res.status(404).json({ message: "Cita no encontrada." });
 
-    // Validar solapamiento si cambia doctor, fecha u hora
     if (doctor || fecha || horaInicio || horaFin) {
       const conflicto = await Cita.findOne({
         _id: { $ne: cita._id },
@@ -96,9 +102,7 @@ const editarCita = async (req, res) => {
       if (conflicto) {
         return res
           .status(409)
-          .json({
-            message: "Ya existe una cita en ese horario para el doctor.",
-          });
+          .json({ message: "Ya existe una cita en ese horario para el doctor." });
       }
     }
 
@@ -111,8 +115,7 @@ const editarCita = async (req, res) => {
     cita.editado_por = req.user?._id || null;
 
     await cita.save();
-
-    await enviarNotificacionCita(cita); // notificación de edición
+    await enviarNotificacionCita(cita);
 
     res.json({ message: "Cita actualizada correctamente." });
   } catch (error) {
@@ -125,6 +128,10 @@ const editarCita = async (req, res) => {
 const eliminarCita = async (req, res) => {
   try {
     const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "ID de cita inválido." });
+    }
+
     const cita = await Cita.findById(id);
     if (!cita) return res.status(404).json({ message: "Cita no encontrada." });
 
@@ -144,11 +151,10 @@ const listarCitas = async (req, res) => {
 
     if (fecha) {
       const parsedFecha = new Date(fecha);
-      if (!isNaN(parsedFecha)) {
-        filtro.fecha = parsedFecha;
-      } else {
-        return res.status(400).json({ message: "Fecha inválida." });
+      if (isNaN(parsedFecha)) {
+        return res.status(400).json({ message: "Formato de fecha inválido." });
       }
+      filtro.fecha = parsedFecha;
     }
 
     if (doctor) {
@@ -163,14 +169,16 @@ const listarCitas = async (req, res) => {
 
       if (cedula) {
         const user = await User.findOne({ cedula }).select("_id");
-        if (!user) return res.json([]);
+        if (!user) return res.status(404).json({ message: "Cédula no encontrada." });
         usuarioId = user._id;
       }
 
-      const paciente = await Paciente.findOne({ usuario: usuarioId }).select(
-        "_id"
-      );
-      if (!paciente) return res.json([]);
+      if (!mongoose.Types.ObjectId.isValid(usuarioId)) {
+        return res.status(400).json({ message: "ID de usuario inválido." });
+      }
+
+      const paciente = await Paciente.findOne({ usuario: usuarioId }).select("_id");
+      if (!paciente) return res.status(404).json({ message: "Paciente no encontrado para este usuario." });
 
       filtro.paciente = paciente._id;
     }
