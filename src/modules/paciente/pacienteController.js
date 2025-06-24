@@ -8,15 +8,20 @@ const crearPaciente = async (req, res) => {
     const { usuario, doctorAsignado, observaciones } = req.body;
 
     if (!usuario) {
-      return res.status(400).json({ message: "El ID del usuario es obligatorio." });
+      return res
+        .status(400)
+        .json({ message: "El ID del usuario es obligatorio." });
     }
 
     const user = await User.findById(usuario);
-    if (!user) return res.status(404).json({ message: "Usuario no encontrado." });
+    if (!user)
+      return res.status(404).json({ message: "Usuario no encontrado." });
 
     const yaEsPaciente = await Paciente.findOne({ usuario });
     if (yaEsPaciente) {
-      return res.status(400).json({ message: "Este usuario ya está registrado como paciente." });
+      return res
+        .status(400)
+        .json({ message: "Este usuario ya está registrado como paciente." });
     }
 
     const nuevoPaciente = new Paciente({
@@ -28,7 +33,12 @@ const crearPaciente = async (req, res) => {
 
     await nuevoPaciente.save();
 
-    res.status(201).json({ message: "Paciente creado correctamente.", paciente: nuevoPaciente });
+    res
+      .status(201)
+      .json({
+        message: "Paciente creado correctamente.",
+        paciente: nuevoPaciente,
+      });
   } catch (error) {
     console.error("❌ Error al crear paciente:", error);
     res.status(500).json({ message: "Error al crear paciente." });
@@ -38,18 +48,36 @@ const crearPaciente = async (req, res) => {
 // Listar todos los pacientes
 const listarPacientes = async (req, res) => {
   try {
+    const { nombre, apellido, cedula } = req.query;
     let filtro = {};
 
+    // Si es doctor, restringe los pacientes a los asignados
     if (req.user.rol === "doctor") {
       const doctor = await Doctor.findOne({ usuario: req.user._id });
-      if (!doctor) return res.status(403).json({ message: "No eres un doctor registrado." });
-
+      if (!doctor)
+        return res
+          .status(403)
+          .json({ message: "No eres un doctor registrado." });
       filtro.doctorAsignado = doctor._id;
     }
 
-    const pacientes = await Paciente.find(filtro)
+    let pacientes = await Paciente.find(filtro)
       .populate("usuario", "-password")
       .populate("doctorAsignado");
+
+    // Filtro adicional por datos del usuario
+    if (nombre || apellido || cedula) {
+      pacientes = pacientes.filter(
+        (p) =>
+          (!nombre ||
+            p.usuario?.nombre?.toLowerCase().includes(nombre.toLowerCase())) &&
+          (!apellido ||
+            p.usuario?.apellido
+              ?.toLowerCase()
+              .includes(apellido.toLowerCase())) &&
+          (!cedula || p.usuario?.cedula === cedula)
+      );
+    }
 
     res.json(pacientes);
   } catch (error) {
@@ -58,7 +86,6 @@ const listarPacientes = async (req, res) => {
   }
 };
 
-
 // Editar paciente
 const editarPaciente = async (req, res) => {
   try {
@@ -66,7 +93,8 @@ const editarPaciente = async (req, res) => {
     const { doctorAsignado, estado, observaciones } = req.body;
 
     const paciente = await Paciente.findById(id);
-    if (!paciente) return res.status(404).json({ message: "Paciente no encontrado." });
+    if (!paciente)
+      return res.status(404).json({ message: "Paciente no encontrado." });
 
     if (doctorAsignado) paciente.doctorAsignado = doctorAsignado;
     if (estado) paciente.estado = estado;
@@ -89,7 +117,8 @@ const eliminarPaciente = async (req, res) => {
     const { id } = req.params;
 
     const paciente = await Paciente.findById(id).populate("usuario");
-    if (!paciente) return res.status(404).json({ message: "Paciente no encontrado." });
+    if (!paciente)
+      return res.status(404).json({ message: "Paciente no encontrado." });
 
     // ⚠️ Si se desea, también puede eliminarse el User relacionado (como en doctorController)
     await paciente.deleteOne();

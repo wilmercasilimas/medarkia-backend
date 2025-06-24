@@ -21,10 +21,13 @@ app.use(
 ); // ✅ Habilitado
 app.use("/api/doctores", require("./src/modules/doctor/doctorRoutes"));
 app.use("/api/pacientes", require("./src/modules/paciente/pacienteRoutes"));
+app.use("/api/citas", require("./src/modules/cita/citaRoutes"));
+
+
 
 // Rutas de configuración inicial (solo para desarrollo)
 // Esta ruta es para crear el usuario admin y la especialidad "Medicina General" al
-app.use("/api/setup", require("./src/modules/setup/setupRoutes"));
+//app.use("/api/setup", require("./src/modules/setup/setupRoutes"));
 
 // Futuras rutas
 // app.use("/api/pacientes", require("./src/modules/paciente/pacienteRoutes"));
