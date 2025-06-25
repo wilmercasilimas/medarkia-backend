@@ -7,10 +7,10 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-const subirImagen = async (archivoPath) => {
+const subirImagen = async (archivoPath, carpeta = "medarkia/usuarios") => {
   try {
     const resultado = await cloudinary.uploader.upload(archivoPath, {
-      folder: "medarkia/usuarios",
+      folder: carpeta, // ✅ Usa el parámetro recibido
       use_filename: true,
       unique_filename: false,
       overwrite: true,

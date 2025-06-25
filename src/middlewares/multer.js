@@ -1,3 +1,4 @@
+// 📦 Middleware para carga de archivos clínicos (no solo imágenes)
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
@@ -8,7 +9,7 @@ if (!fs.existsSync(tempDir)) {
   fs.mkdirSync(tempDir, { recursive: true });
 }
 
-// Configurar almacenamiento
+// Almacenamiento
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, tempDir);
@@ -19,19 +20,19 @@ const storage = multer.diskStorage({
   },
 });
 
-// Filtro para imágenes y extensiones permitidas
+// Filtro para múltiples tipos permitidos
 const fileFilter = (req, file, cb) => {
   const ext = path.extname(file.originalname).toLowerCase();
-  const extensionesPermitidas = [".jpg", ".jpeg", ".png", ".webp"];
+  const extensionesPermitidas = [".jpg", ".jpeg", ".png", ".webp", ".pdf", ".doc", ".docx"];
 
-  if (file.mimetype.startsWith("image/") && extensionesPermitidas.includes(ext)) {
+  if (extensionesPermitidas.includes(ext)) {
     cb(null, true);
   } else {
-    cb(new Error("Solo se permiten imágenes JPG, PNG, JPEG o WEBP."), false);
+    cb(new Error("Formato de archivo no permitido."), false);
   }
 };
 
-// Middleware final con límite de tamaño (5MB)
+// Configuración Multer
 const upload = multer({
   storage,
   fileFilter,
