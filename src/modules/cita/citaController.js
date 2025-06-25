@@ -2,7 +2,8 @@ const Cita = require("./Cita");
 const Doctor = require("../doctor/Doctor");
 const Paciente = require("../paciente/Paciente");
 const Especialidad = require("../especialidad/Especialidad");
-const { enviarNotificacionCita } = require("./notificarCita");
+const { notificarCita } = require("./notificarCita");
+
 const mongoose = require("mongoose");
 const User = require("../user/User");
 
@@ -64,7 +65,7 @@ const crearCita = async (req, res) => {
     });
 
     await nuevaCita.save();
-    await enviarNotificacionCita(nuevaCita);
+    await notificarCita(nuevaCita);
 
     res.status(201).json({ message: "Cita creada correctamente.", cita: nuevaCita });
   } catch (error) {
@@ -115,7 +116,7 @@ const editarCita = async (req, res) => {
     cita.editado_por = req.user?._id || null;
 
     await cita.save();
-    await enviarNotificacionCita(cita);
+    await notificarCita(cita);
 
     res.json({ message: "Cita actualizada correctamente." });
   } catch (error) {
