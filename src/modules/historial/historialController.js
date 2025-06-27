@@ -3,7 +3,10 @@ const mongoose = require("mongoose");
 const HistorialClinico = require("./HistorialClinico");
 const Paciente = require("../paciente/Paciente");
 const Doctor = require("../doctor/Doctor");
-const { subirImagen, eliminarImagen } = require("../../helpers/cloudinaryHelper");
+const {
+  subirImagen,
+  eliminarImagen,
+} = require("../../helpers/cloudinaryHelper");
 const { enviarEmail } = require("../../helpers/emailHelper");
 const { enviarWhatsapp } = require("../../helpers/whatsappHelper");
 
@@ -31,19 +34,42 @@ const crearHistorial = async (req, res) => {
 
     await nuevoHistorial.save();
 
-    const paciente = await Paciente.findById(nuevoHistorial.paciente).populate("usuario");
-    const doctor = await Doctor.findById(nuevoHistorial.doctor).populate("usuario");
+    const paciente = await Paciente.findById(nuevoHistorial.paciente).populate(
+      "usuario"
+    );
+    const doctor = await Doctor.findById(nuevoHistorial.doctor).populate(
+      "usuario"
+    );
     const fechaStr = new Date(nuevoHistorial.fecha).toLocaleDateString();
 
-    const mensaje = `Hola ${paciente.usuario.nombre}, tu historial clínico ha sido creado el día ${fechaStr}.
-Motivo: ${nuevoHistorial.motivoConsulta || "-"}.
-Diagnóstico: ${nuevoHistorial.diagnostico || "-"}.
-Revisa tu historial accediendo a Medarkia o contacta a tu doctor: ${doctor.usuario.telefono || "-"}.`;
+    const nombrePaciente = paciente?.usuario
+      ? `${paciente.usuario.nombre} ${paciente.usuario.apellido}`
+      : "-";
+    const nombreDoctor = doctor?.usuario
+      ? `${doctor.usuario.nombre} ${doctor.usuario.apellido}`
+      : "-";
+    const telefonoDoctor = doctor?.usuario?.telefono || "-";
 
-    await enviarEmail(paciente.usuario.email, "Historial clínico actualizado", mensaje);
-    await enviarWhatsapp(paciente.usuario.telefono, mensaje);
-    await enviarEmail(doctor.usuario.email, "Historial clínico de tu paciente", mensaje);
-    await enviarWhatsapp(doctor.usuario.telefono, mensaje);
+    const mensaje = `Sr. (a): ${nombrePaciente}\n\n
+      📋 Se ha creado un nuevo historial clínico el ${fechaStr}.
+          Por Instrucciones del Doctor: Dr. (a) ${nombreDoctor}
+
+      📌 Motivo: ${nuevoHistorial.motivoConsulta || "-"}
+      📋 Diagnóstico: ${nuevoHistorial.diagnostico || "-"}\n\n\n
+      📞 Contacto del doctor: (a) ${telefonoDoctor}`;
+
+    await enviarEmail(
+      paciente?.usuario?.email,
+      "Nuevo historial clínico",
+      mensaje
+    );
+    await enviarWhatsapp(paciente?.usuario?.telefono, mensaje);
+    await enviarEmail(
+      doctor?.usuario?.email,
+      "Historial creado para paciente",
+      mensaje
+    );
+    await enviarWhatsapp(doctor?.usuario?.telefono, mensaje);
 
     res.status(201).json({
       message: "Historial clínico creado correctamente.",
@@ -57,12 +83,21 @@ Revisa tu historial accediendo a Medarkia o contacta a tu doctor: ${doctor.usuar
 
 const listarHistoriales = async (req, res) => {
   try {
-    const { paciente, doctor, fechaInicio, fechaFin, texto, page = 1, limit = 10 } = req.query;
+    const {
+      paciente,
+      doctor,
+      fechaInicio,
+      fechaFin,
+      texto,
+      page = 1,
+      limit = 10,
+    } = req.query;
     const filtro = {};
 
     if (req.user.rol === "paciente") {
       const miPaciente = await Paciente.findOne({ usuario: req.user._id });
-      if (!miPaciente) return res.status(404).json({ message: "Paciente no encontrado." });
+      if (!miPaciente)
+        return res.status(404).json({ message: "Paciente no encontrado." });
       filtro.paciente = miPaciente._id;
     } else {
       if (paciente) {
@@ -84,12 +119,18 @@ const listarHistoriales = async (req, res) => {
       filtro.fecha = {};
       if (fechaInicio) {
         const inicio = new Date(fechaInicio);
-        if (isNaN(inicio)) return res.status(400).json({ message: "Formato de fechaInicio inválido (YYYY-MM-DD)." });
+        if (isNaN(inicio))
+          return res
+            .status(400)
+            .json({ message: "Formato de fechaInicio inválido (YYYY-MM-DD)." });
         filtro.fecha.$gte = inicio;
       }
       if (fechaFin) {
         const fin = new Date(fechaFin);
-        if (isNaN(fin)) return res.status(400).json({ message: "Formato de fechaFin inválido (YYYY-MM-DD)." });
+        if (isNaN(fin))
+          return res
+            .status(400)
+            .json({ message: "Formato de fechaFin inválido (YYYY-MM-DD)." });
         filtro.fecha.$lte = fin;
       }
     }
@@ -136,14 +177,18 @@ const editarHistorial = async (req, res) => {
     if (req.user.rol === "doctor") {
       const doctor = await Doctor.findOne({ usuario: req.user._id });
       if (!doctor || doctor._id.toString() !== historial.doctor.toString()) {
-        return res.status(403).json({ message: "No tienes permiso para editar este historial." });
+        return res
+          .status(403)
+          .json({ message: "No tienes permiso para editar este historial." });
       }
     }
 
     const ahora = new Date();
     const diferenciaHoras = (ahora - historial.createdAt) / (1000 * 60 * 60);
     if (diferenciaHoras > 48) {
-      return res.status(403).json({ message: "El historial no puede editarse después de 48 horas." });
+      return res.status(403).json({
+        message: "El historial no puede editarse después de 48 horas.",
+      });
     }
 
     historial.cambios = historial.cambios || [];
@@ -178,22 +223,42 @@ const editarHistorial = async (req, res) => {
 
     Object.assign(historial, req.body);
     historial.editado_por = req.user._id;
-
     await historial.save();
 
-    const paciente = await Paciente.findById(historial.paciente).populate("usuario");
+    const paciente = await Paciente.findById(historial.paciente).populate(
+      "usuario"
+    );
     const doctor = await Doctor.findById(historial.doctor).populate("usuario");
     const fechaStr = new Date(historial.fecha).toLocaleDateString();
 
-    const mensaje = `Hola ${paciente.usuario.nombre}, tu historial clínico ha sido editado el día ${fechaStr}.
-Motivo: ${historial.motivoConsulta || "-"}.
-Diagnóstico: ${historial.diagnostico || "-"}.
-Revisa tu historial accediendo a Medarkia o contacta a tu doctor: ${doctor.usuario.telefono || "-"}.`;
+    const nombrePaciente = paciente?.usuario
+      ? `${paciente.usuario.nombre} ${paciente.usuario.apellido}`
+      : "-";
+    const nombreDoctor = doctor?.usuario
+      ? `${doctor.usuario.nombre} ${doctor.usuario.apellido}`
+      : "-";
+    const telefonoDoctor = doctor?.usuario?.telefono || "-";
 
-    await enviarEmail(paciente.usuario.email, "Historial clínico actualizado", mensaje);
-    await enviarWhatsapp(paciente.usuario.telefono, mensaje);
-    await enviarEmail(doctor.usuario.email, "Historial clínico de tu paciente actualizado", mensaje);
-    await enviarWhatsapp(doctor.usuario.telefono, mensaje);
+    const mensaje = `Sr. (a): ${nombrePaciente}  \n\n
+    📋 Se ha actualizado un historial clínico el ${fechaStr}.
+           Por Instrucciones del Doctor: Dr. (a) ${nombreDoctor}
+
+    📌 Motivo: ${historial.motivoConsulta || "-"}
+    📋 Diagnóstico: ${historial.diagnostico || "-"}\n\n\n
+    📞 Contacto del doctor: (a) ${telefonoDoctor}`;
+
+    await enviarEmail(
+      paciente?.usuario?.email,
+      "Historial clínico actualizado",
+      mensaje
+    );
+    await enviarWhatsapp(paciente?.usuario?.telefono, mensaje);
+    await enviarEmail(
+      doctor?.usuario?.email,
+      "Historial clínico de tu paciente actualizado",
+      mensaje
+    );
+    await enviarWhatsapp(doctor?.usuario?.telefono, mensaje);
 
     res.json({ message: "Historial actualizado correctamente." });
   } catch (error) {

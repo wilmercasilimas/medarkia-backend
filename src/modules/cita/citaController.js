@@ -2,12 +2,11 @@ const Cita = require("./Cita");
 const Doctor = require("../doctor/Doctor");
 const Paciente = require("../paciente/Paciente");
 const Especialidad = require("../especialidad/Especialidad");
-const { notificarCita } = require("./notificarCita");
-
+const { enviarEmail } = require("../../helpers/emailHelper");
+const { enviarWhatsapp } = require("../../helpers/whatsappHelper");
 const mongoose = require("mongoose");
 const User = require("../user/User");
 
-// Crear cita
 const crearCita = async (req, res) => {
   try {
     const {
@@ -24,8 +23,13 @@ const crearCita = async (req, res) => {
       return res.status(400).json({ message: "Faltan campos obligatorios." });
     }
 
-    if (!mongoose.Types.ObjectId.isValid(paciente) || !mongoose.Types.ObjectId.isValid(doctor)) {
-      return res.status(400).json({ message: "ID de paciente o doctor inválido." });
+    if (
+      !mongoose.Types.ObjectId.isValid(paciente) ||
+      !mongoose.Types.ObjectId.isValid(doctor)
+    ) {
+      return res
+        .status(400)
+        .json({ message: "ID de paciente o doctor inválido." });
     }
 
     const fechaObj = new Date(fecha);
@@ -65,16 +69,51 @@ const crearCita = async (req, res) => {
     });
 
     await nuevaCita.save();
-    await notificarCita(nuevaCita);
 
-    res.status(201).json({ message: "Cita creada correctamente.", cita: nuevaCita });
+    const pacientePop = await Paciente.findById(paciente).populate("usuario");
+    const doctorPop = await Doctor.findById(doctor).populate("usuario");
+    const especialidadPop = await Especialidad.findById(especialidadFinal);
+
+    const pacienteNombre = pacientePop?.usuario
+      ? `${pacientePop.usuario.nombre} ${pacientePop.usuario.apellido}`
+      : "-";
+    const doctorNombre = doctorPop?.usuario
+      ? `${doctorPop.usuario.nombre} ${doctorPop.usuario.apellido}`
+      : "-";
+    const telefonoDoctor = doctorPop?.usuario?.telefono || "-";
+    const emailDoctor = doctorPop?.usuario?.email || null;
+    const emailPaciente = pacientePop?.usuario?.email || null;
+    const telPaciente = pacientePop?.usuario?.telefono || null;
+    const especialidadNombre = especialidadPop?.nombre || "-";
+
+    const fechaTexto = new Date(fecha).toLocaleDateString();
+    const horaTexto = new Date(
+      `1970-01-01T${horaInicio}`
+    ).toLocaleTimeString("es-VE", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    const mensaje = `Sr. (a): ${pacienteNombre}\n\n📅 Se ha agendado una cita médica para el ${fechaTexto} a las ${horaTexto}.\nDoctor: (a) ${doctorNombre}\nEspecialidad: ${especialidadNombre}\n\n📋 Observaciones: ${
+      observaciones || "-"
+    }\n\n\n📞 Contacto del doctor: ${telefonoDoctor}`;
+
+    if (emailPaciente)
+      await enviarEmail(emailPaciente, "Nueva cita médica agendada", mensaje);
+    if (telPaciente) await enviarWhatsapp(telPaciente, mensaje);
+    if (emailDoctor)
+      await enviarEmail(emailDoctor, "Nueva cita registrada", mensaje);
+    if (telefonoDoctor) await enviarWhatsapp(telefonoDoctor, mensaje);
+
+    res
+      .status(201)
+      .json({ message: "Cita creada correctamente.", cita: nuevaCita });
   } catch (error) {
     console.error("❌ Error al crear cita:", error);
     res.status(500).json({ message: "Error al crear cita." });
   }
 };
 
-// Editar cita
 const editarCita = async (req, res) => {
   try {
     const { id } = req.params;
@@ -82,10 +121,22 @@ const editarCita = async (req, res) => {
       return res.status(400).json({ message: "ID de cita inválido." });
     }
 
-    const { fecha, horaInicio, horaFin, doctor, observaciones, estado } = req.body;
+    const { fecha, horaInicio, horaFin, doctor, observaciones, estado } =
+      req.body;
 
     const cita = await Cita.findById(id);
     if (!cita) return res.status(404).json({ message: "Cita no encontrada." });
+
+    // Validación defensiva del nuevo doctor (si se está cambiando)
+    if (doctor) {
+      if (!mongoose.Types.ObjectId.isValid(doctor)) {
+        return res.status(400).json({ message: "ID de doctor inválido." });
+      }
+      const existeDoctor = await Doctor.findById(doctor);
+      if (!existeDoctor) {
+        return res.status(404).json({ message: "Doctor no encontrado." });
+      }
+    }
 
     if (doctor || fecha || horaInicio || horaFin) {
       const conflicto = await Cita.findOne({
@@ -103,7 +154,9 @@ const editarCita = async (req, res) => {
       if (conflicto) {
         return res
           .status(409)
-          .json({ message: "Ya existe una cita en ese horario para el doctor." });
+          .json({
+            message: "Ya existe una cita en ese horario para el doctor.",
+          });
       }
     }
 
@@ -116,7 +169,44 @@ const editarCita = async (req, res) => {
     cita.editado_por = req.user?._id || null;
 
     await cita.save();
-    await notificarCita(cita);
+
+    const pacientePop = await Paciente.findById(cita.paciente).populate(
+      "usuario"
+    );
+    const doctorPop = await Doctor.findById(cita.doctor).populate("usuario");
+    const especialidadPop = await Especialidad.findById(cita.especialidad);
+
+    const pacienteNombre = pacientePop?.usuario
+      ? `${pacientePop.usuario.nombre} ${pacientePop.usuario.apellido}`
+      : "-";
+
+    const doctorNombre = doctorPop?.usuario
+      ? `${doctorPop.usuario.nombre} ${doctorPop.usuario.apellido}`
+      : "-";
+
+    const telefonoDoctor = doctorPop?.usuario?.telefono || "-";
+    const emailDoctor = doctorPop?.usuario?.email || null;
+    const emailPaciente = pacientePop?.usuario?.email || null;
+    const telPaciente = pacientePop?.usuario?.telefono || null;
+    const especialidadNombre = especialidadPop?.nombre || "-";
+
+    const fechaTexto = new Date(cita.fecha).toLocaleDateString();
+    const horaTexto = new Date(`1970-01-01T${cita.horaInicio}`).toLocaleTimeString("es-VE", {
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+
+    const mensaje = `Sr. (a): ${pacienteNombre}\n\n✏️ Se ha actualizado una cita médica para el ${fechaTexto} a las ${horaTexto}.\nDoctor: (a) ${doctorNombre}\nEspecialidad: ${especialidadNombre}\n\n📋 Observaciones: ${
+      cita.observaciones || "-"
+    }\n\n\n📞 Contacto del doctor: ${telefonoDoctor}`;
+
+    if (emailPaciente)
+      await enviarEmail(emailPaciente, "Cita médica actualizada", mensaje);
+    if (telPaciente) await enviarWhatsapp(telPaciente, mensaje);
+    if (emailDoctor)
+      await enviarEmail(emailDoctor, "Cita médica actualizada", mensaje);
+    if (telefonoDoctor) await enviarWhatsapp(telefonoDoctor, mensaje);
 
     res.json({ message: "Cita actualizada correctamente." });
   } catch (error) {
@@ -125,7 +215,6 @@ const editarCita = async (req, res) => {
   }
 };
 
-// Eliminar cita
 const eliminarCita = async (req, res) => {
   try {
     const { id } = req.params;
@@ -144,7 +233,6 @@ const eliminarCita = async (req, res) => {
   }
 };
 
-// Listar citas con filtros
 const listarCitas = async (req, res) => {
   try {
     const { fecha, doctor, cedula, usuario } = req.query;
@@ -170,7 +258,8 @@ const listarCitas = async (req, res) => {
 
       if (cedula) {
         const user = await User.findOne({ cedula }).select("_id");
-        if (!user) return res.status(404).json({ message: "Cédula no encontrada." });
+        if (!user)
+          return res.status(404).json({ message: "Cédula no encontrada." });
         usuarioId = user._id;
       }
 
@@ -178,8 +267,13 @@ const listarCitas = async (req, res) => {
         return res.status(400).json({ message: "ID de usuario inválido." });
       }
 
-      const paciente = await Paciente.findOne({ usuario: usuarioId }).select("_id");
-      if (!paciente) return res.status(404).json({ message: "Paciente no encontrado para este usuario." });
+      const paciente = await Paciente.findOne({ usuario: usuarioId }).select(
+        "_id"
+      );
+      if (!paciente)
+        return res
+          .status(404)
+          .json({ message: "Paciente no encontrado para este usuario." });
 
       filtro.paciente = paciente._id;
     }

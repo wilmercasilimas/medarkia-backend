@@ -23,6 +23,7 @@ app.use("/api/doctores", require("./src/modules/doctor/doctorRoutes"));
 app.use("/api/pacientes", require("./src/modules/paciente/pacienteRoutes"));
 app.use("/api/citas", require("./src/modules/cita/citaRoutes"));
 app.use("/api/historiales", require("./src/modules/historial/historialRoutes"));
+app.use("/api/recetas", require("./src/modules/receta/recetaRoutes"));
 
 
 
