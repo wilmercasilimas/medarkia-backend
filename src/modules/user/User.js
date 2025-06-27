@@ -41,6 +41,12 @@ const userSchema = new mongoose.Schema(
       enum: ["admin", "doctor", "asistente", "paciente"],
       default: "paciente",
     },
+    asociado_a: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User", // referencia a un doctor
+      default: null,
+    },
+
     avatar: {
       url: {
         type: String,

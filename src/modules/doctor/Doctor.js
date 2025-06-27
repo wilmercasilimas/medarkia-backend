@@ -18,6 +18,13 @@ const doctorSchema = new mongoose.Schema(
       enum: ["activo", "inactivo"],
       default: "activo",
     },
+    asistentes: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+
     creado_por: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

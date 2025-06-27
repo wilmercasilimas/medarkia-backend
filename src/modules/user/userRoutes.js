@@ -6,6 +6,7 @@ const {
   actualizarUsuario,
   eliminarUsuario,
   actualizarAvatar,
+  asignarDoctor
 } = require("./userController");
 
 const auth = require("../../middlewares/auth");
@@ -43,6 +44,14 @@ router.put(
   upload.single("avatar"),
   actualizarAvatar
 );
+
+// 🔗 Asignar doctor a asistente (solo admin)
+router.put(
+  "/:id/asignar-doctor",
+  validarRol("admin", "doctor"),
+  asignarDoctor
+);
+
 
 // ❌ Eliminar usuario (solo admin)
 router.delete("/:id", validarRol("admin"), eliminarUsuario);

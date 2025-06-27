@@ -27,8 +27,8 @@ router.post(
   crearReceta
 );
 
-// 📋 Listar recetas (doctor, paciente, admin)
-router.get("/", validarRol("admin", "doctor", "paciente"), listarRecetas);
+// 📋 Listar recetas (doctor, paciente, admin, asistente)
+router.get("/", validarRol("admin", "doctor", "paciente", "asistente"), listarRecetas);
 
 // 🔄 Editar receta (solo doctor que la creó o admin)
 router.put(

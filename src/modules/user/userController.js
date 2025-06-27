@@ -186,10 +186,37 @@ const eliminarUsuario = async (req, res) => {
   }
 };
 
+const asignarDoctor = async (req, res) => {
+  const { id } = req.params;
+  const { doctorId } = req.body;
+
+  if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(doctorId)) {
+    return res.status(400).json({ message: "ID inválido." });
+  }
+
+  const asistente = await User.findById(id);
+  const doctor = await User.findById(doctorId);
+
+  if (!asistente || asistente.rol !== "asistente") {
+    return res.status(404).json({ message: "Asistente no encontrado o no es rol asistente." });
+  }
+
+  if (!doctor || doctor.rol !== "doctor") {
+    return res.status(404).json({ message: "Doctor no encontrado o no es rol doctor." });
+  }
+
+  asistente.asociado_a = doctorId;
+  await asistente.save();
+
+  res.json({ message: "Doctor asignado al asistente correctamente.", asistente });
+};
+
+
 module.exports = {
   crearUsuario,
   listarUsuarios,
   actualizarUsuario,
   eliminarUsuario,
   actualizarAvatar,
+  asignarDoctor
 };

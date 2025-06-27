@@ -3,6 +3,8 @@ const mongoose = require("mongoose");
 const RecetaMedica = require("./RecetaMedica");
 const Paciente = require("../paciente/Paciente");
 const Doctor = require("../doctor/Doctor");
+const User = require("../user/User");
+
 const {
   subirImagen,
   eliminarImagen,
@@ -178,29 +180,105 @@ const listarRecetas = async (req, res) => {
     const {
       paciente,
       doctor,
+      cedula,
+      fecha,
       fechaInicio,
       fechaFin,
       page = 1,
       limit = 10,
     } = req.query;
+
     const filtro = {};
+    const usuario = req.user;
 
-    if (paciente) {
-      if (!mongoose.Types.ObjectId.isValid(paciente)) {
-        return res.status(400).json({ message: "ID de paciente inválido." });
-      }
-      filtro.paciente = paciente;
+    // 📌 Rol: doctor → solo ve recetas que él creó
+    if (usuario.rol === "doctor") {
+      filtro.creado_por = usuario._id;
     }
 
-    if (doctor) {
-      if (!mongoose.Types.ObjectId.isValid(doctor)) {
-        return res.status(400).json({ message: "ID de doctor inválido." });
+    // 📌 Rol: asistente → debe estar asociado a un doctor
+    if (usuario.rol === "asistente") {
+      const userAsistente = await User.findById(usuario._id);
+      if (!userAsistente?.asociado_a) {
+        return res.status(403).json({
+          message: "Este asistente no está asociado a ningún doctor.",
+        });
       }
-      filtro.doctor = doctor;
+      filtro.creado_por = userAsistente.asociado_a;
     }
 
+    // 📌 Rol: paciente → solo ve sus propias recetas
+    if (usuario.rol === "paciente") {
+      const pacienteDoc = await Paciente.findOne({ usuario: usuario._id });
+      if (!pacienteDoc) {
+        return res.status(403).json({ message: "Paciente no encontrado." });
+      }
+      filtro.paciente = pacienteDoc._id;
+    }
+
+    // 📌 Rol: admin → puede filtrar por doctor, paciente, cédula, fecha
+    if (usuario.rol === "admin") {
+      if (doctor) {
+        if (!mongoose.Types.ObjectId.isValid(doctor)) {
+          return res.status(400).json({ message: "ID de doctor inválido." });
+        }
+        filtro.doctor = doctor;
+      }
+
+      if (paciente) {
+        if (!mongoose.Types.ObjectId.isValid(paciente)) {
+          return res.status(400).json({ message: "ID de paciente inválido." });
+        }
+        filtro.paciente = paciente;
+      }
+
+      if (cedula) {
+        const cedulaLimpia = cedula.replace(/^V|^E/, "").trim();
+        const usuarioCedula = await User.findOne({ cedula: cedulaLimpia });
+
+        if (!usuarioCedula) {
+          return res
+            .status(404)
+            .json({ message: "Usuario con esa cédula no encontrado." });
+        }
+
+        const pacienteRelacionado = await Paciente.findOne({
+          usuario: usuarioCedula._id,
+        });
+
+        if (!pacienteRelacionado) {
+          return res
+            .status(404)
+            .json({ message: "Paciente con esa cédula no encontrado." });
+        }
+
+        filtro.paciente = pacienteRelacionado._id;
+      }
+
+      if (fecha) {
+        const [year, month, day] = fecha.split("-");
+        const fechaObj = new Date(Date.UTC(+year, +month - 1, +day));
+
+        if (isNaN(fechaObj)) {
+          return res.status(400).json({
+            message: "Formato de fecha inválido. Usa YYYY-MM-DD.",
+          });
+        }
+
+        const inicioDia = new Date(fechaObj);
+        const finDia = new Date(fechaObj);
+        finDia.setUTCHours(23, 59, 59, 999);
+
+        filtro.fecha = {
+          $gte: inicioDia,
+          $lte: finDia,
+        };
+      }
+    }
+
+    // 📅 Filtro adicional por rango de fechas
     if (fechaInicio || fechaFin) {
-      filtro.fecha = {};
+      filtro.fecha = filtro.fecha || {};
       if (fechaInicio) filtro.fecha.$gte = new Date(fechaInicio);
       if (fechaFin) filtro.fecha.$lte = new Date(fechaFin);
     }

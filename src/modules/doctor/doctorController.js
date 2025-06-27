@@ -113,9 +113,43 @@ const eliminarDoctor = async (req, res) => {
   }
 };
 
+const asignarAsistente = async (req, res) => {
+  try {
+    const doctorId = req.params.id;
+    const { asistenteId } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(doctorId) || !mongoose.Types.ObjectId.isValid(asistenteId)) {
+      return res.status(400).json({ message: "ID inválido." });
+    }
+
+    const doctor = await Doctor.findById(doctorId);
+    if (!doctor) return res.status(404).json({ message: "Doctor no encontrado." });
+
+    const asistente = await User.findById(asistenteId);
+    if (!asistente || asistente.rol !== "asistente") {
+      return res.status(400).json({ message: "El usuario no es un asistente válido." });
+    }
+
+    // Evitar duplicados
+    if (doctor.asistentes.includes(asistenteId)) {
+      return res.status(409).json({ message: "El asistente ya está asociado a este doctor." });
+    }
+
+    doctor.asistentes.push(asistenteId);
+    doctor.editado_por = req.user._id;
+    await doctor.save();
+
+    res.json({ message: "Asistente asignado correctamente al doctor.", doctor });
+  } catch (error) {
+    console.error("❌ Error al asignar asistente:", error);
+    res.status(500).json({ message: "Error al asignar asistente al doctor." });
+  }
+};
+
 module.exports = {
   crearDoctor,
   listarDoctores,
   editarDoctor,
   eliminarDoctor,
+  asignarAsistente
 };
