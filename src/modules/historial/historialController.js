@@ -9,6 +9,8 @@ const {
 } = require("../../helpers/cloudinaryHelper");
 const { enviarEmail } = require("../../helpers/emailHelper");
 const { enviarWhatsapp } = require("../../helpers/whatsappHelper");
+const logger = require("../../config/logger");
+const User = require("../user/User");
 
 const crearHistorial = async (req, res) => {
   try {
@@ -71,12 +73,16 @@ const crearHistorial = async (req, res) => {
     );
     await enviarWhatsapp(doctor?.usuario?.telefono, mensaje);
 
+    logger.info(
+      `✅ Historial creado para paciente ${nombrePaciente} por el doctor ${nombreDoctor}`
+    );
+
     res.status(201).json({
       message: "Historial clínico creado correctamente.",
       historial: nuevoHistorial,
     });
   } catch (error) {
-    console.error("❌ Error al crear historial:", error);
+    logger.error(`❌ Error al crear historial: ${error.message}`);
     res.status(500).json({ message: "Error al crear historial." });
   }
 };
@@ -86,27 +92,48 @@ const listarHistoriales = async (req, res) => {
     const {
       paciente,
       doctor,
+      cedula,
+      nombre,
+      apellido,
       fechaInicio,
       fechaFin,
       texto,
       page = 1,
       limit = 10,
     } = req.query;
+
     const filtro = {};
 
+    // 🔐 Control por rol
     if (req.user.rol === "paciente") {
       const miPaciente = await Paciente.findOne({ usuario: req.user._id });
-      if (!miPaciente)
+      if (!miPaciente) {
+        logger.warn("⚠️ Paciente no encontrado.");
         return res.status(404).json({ message: "Paciente no encontrado." });
-      filtro.paciente = miPaciente._id;
-    } else {
-      if (paciente) {
-        if (!mongoose.Types.ObjectId.isValid(paciente)) {
-          return res.status(400).json({ message: "ID de paciente inválido." });
-        }
-        filtro.paciente = paciente;
       }
-
+      filtro.paciente = miPaciente._id;
+    } else if (req.user.rol === "doctor") {
+      const doctorObj = await Doctor.findOne({ usuario: req.user._id });
+      if (!doctorObj) {
+        logger.warn("⚠️ Doctor no registrado.");
+        return res.status(403).json({ message: "Doctor no registrado." });
+      }
+      filtro.doctor = doctorObj._id;
+    } else if (req.user.rol === "asistente") {
+      const asistente = await User.findById(req.user._id);
+      if (!asistente?.asociado_a) {
+        return res
+          .status(403)
+          .json({ message: "No tienes un doctor asignado." });
+      }
+      const doctorObj = await Doctor.findOne({ usuario: asistente.asociado_a });
+      if (!doctorObj) {
+        return res
+          .status(404)
+          .json({ message: "Doctor asociado no encontrado." });
+      }
+      filtro.doctor = doctorObj._id;
+    } else if (req.user.rol === "admin") {
       if (doctor) {
         if (!mongoose.Types.ObjectId.isValid(doctor)) {
           return res.status(400).json({ message: "ID de doctor inválido." });
@@ -115,6 +142,44 @@ const listarHistoriales = async (req, res) => {
       }
     }
 
+    // 🎯 Filtro por paciente ID
+    if (paciente) {
+      if (!mongoose.Types.ObjectId.isValid(paciente)) {
+        return res.status(400).json({ message: "ID de paciente inválido." });
+      }
+      filtro.paciente = paciente;
+    }
+
+    // 🔍 Filtro por cédula, nombre o apellido del paciente
+    if (cedula || nombre || apellido) {
+      const usuarioQuery = {};
+      if (cedula) usuarioQuery.cedula = cedula;
+      if (nombre) usuarioQuery.nombre = { $regex: nombre, $options: "i" };
+      if (apellido) usuarioQuery.apellido = { $regex: apellido, $options: "i" };
+
+      const usuarios = await User.find(usuarioQuery).select("_id");
+      if (!usuarios.length) {
+        return res
+          .status(404)
+          .json({
+            message:
+              "No se encontraron pacientes que coincidan con los filtros.",
+          });
+      }
+
+      const pacientes = await Paciente.find({
+        usuario: { $in: usuarios.map((u) => u._id) },
+      }).select("_id");
+      if (!pacientes.length) {
+        return res
+          .status(404)
+          .json({ message: "No se encontraron pacientes válidos." });
+      }
+
+      filtro.paciente = { $in: pacientes.map((p) => p._id) };
+    }
+
+    // 🗓️ Filtro por fechas
     if (fechaInicio || fechaFin) {
       filtro.fecha = {};
       if (fechaInicio) {
@@ -122,7 +187,7 @@ const listarHistoriales = async (req, res) => {
         if (isNaN(inicio))
           return res
             .status(400)
-            .json({ message: "Formato de fechaInicio inválido (YYYY-MM-DD)." });
+            .json({ message: "Formato de fechaInicio inválido." });
         filtro.fecha.$gte = inicio;
       }
       if (fechaFin) {
@@ -130,11 +195,12 @@ const listarHistoriales = async (req, res) => {
         if (isNaN(fin))
           return res
             .status(400)
-            .json({ message: "Formato de fechaFin inválido (YYYY-MM-DD)." });
+            .json({ message: "Formato de fechaFin inválido." });
         filtro.fecha.$lte = fin;
       }
     }
 
+    // 🔎 Filtro por texto libre
     if (texto) {
       filtro.$or = [
         { motivoConsulta: { $regex: texto, $options: "i" } },
@@ -152,12 +218,13 @@ const listarHistoriales = async (req, res) => {
         populate: { path: "usuario", select: "-password" },
       })
       .populate("especialidad")
+      .sort({ fecha: -1 })
       .skip((page - 1) * limit)
       .limit(Number(limit));
 
     res.json(historiales);
   } catch (error) {
-    console.error("❌ Error al listar historiales:", error);
+    logger.error(`❌ Error al listar historiales: ${error.message}`);
     res.status(500).json({ message: "Error al obtener historiales." });
   }
 };
@@ -166,17 +233,20 @@ const editarHistorial = async (req, res) => {
   try {
     const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
+      logger.warn("⚠️ ID de historial inválido.");
       return res.status(400).json({ message: "ID de historial inválido." });
     }
 
     const historial = await HistorialClinico.findById(id);
     if (!historial) {
+      logger.warn("⚠️ Historial no encontrado.");
       return res.status(404).json({ message: "Historial no encontrado." });
     }
 
     if (req.user.rol === "doctor") {
       const doctor = await Doctor.findOne({ usuario: req.user._id });
       if (!doctor || doctor._id.toString() !== historial.doctor.toString()) {
+        logger.warn("⚠️ Doctor sin permiso para editar este historial.");
         return res
           .status(403)
           .json({ message: "No tienes permiso para editar este historial." });
@@ -186,6 +256,7 @@ const editarHistorial = async (req, res) => {
     const ahora = new Date();
     const diferenciaHoras = (ahora - historial.createdAt) / (1000 * 60 * 60);
     if (diferenciaHoras > 48) {
+      logger.warn("⚠️ Edición no permitida: historial mayor a 48h.");
       return res.status(403).json({
         message: "El historial no puede editarse después de 48 horas.",
       });
@@ -260,9 +331,13 @@ const editarHistorial = async (req, res) => {
     );
     await enviarWhatsapp(doctor?.usuario?.telefono, mensaje);
 
+    logger.info(
+      `✏️ Historial actualizado por ${nombreDoctor} para paciente ${nombrePaciente}`
+    );
+
     res.json({ message: "Historial actualizado correctamente." });
   } catch (error) {
-    console.error("❌ Error al editar historial:", error);
+    logger.error(`❌ Error al editar historial: ${error.message}`);
     res.status(500).json({ message: "Error al editar historial." });
   }
 };
@@ -271,11 +346,13 @@ const eliminarHistorial = async (req, res) => {
   try {
     const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
+      logger.warn("⚠️ ID de historial inválido.");
       return res.status(400).json({ message: "ID de historial inválido." });
     }
 
     const historial = await HistorialClinico.findById(id);
     if (!historial) {
+      logger.warn("⚠️ Historial no encontrado.");
       return res.status(404).json({ message: "Historial no encontrado." });
     }
 
@@ -286,9 +363,10 @@ const eliminarHistorial = async (req, res) => {
     }
 
     await historial.deleteOne();
+    logger.info(`🗑️ Historial eliminado con ID ${id}`);
     res.json({ message: "Historial eliminado correctamente." });
   } catch (error) {
-    console.error("❌ Error al eliminar historial:", error);
+    logger.error(`❌ Error al eliminar historial: ${error.message}`);
     res.status(500).json({ message: "Error al eliminar historial." });
   }
 };

@@ -13,33 +13,43 @@ const upload = require("../../middlewares/multer");
 const {
   validarRecetaCreacion,
   validarRecetaEdicion,
-} = require("./validarReceta"); // ✅ destructuramos los validadores
+} = require("./validarReceta");
+const validarPropiedadPorId = require("../../middlewares/validarPropiedadPorId");
 
-// 🔐 Todas las rutas requieren autenticación
 router.use(auth);
 
-// 🆕 Crear receta (solo doctor o asistente)
+// 🆕 Crear receta (solo doctor)
 router.post(
   "/",
-  validarRol("doctor", "asistente"),
+  validarRol("doctor"),
   upload.array("archivos"),
-  validarRecetaCreacion, // ⬅ validador estricto
+  validarRecetaCreacion,
   crearReceta
 );
 
-// 📋 Listar recetas (doctor, paciente, admin, asistente)
-router.get("/", validarRol("admin", "doctor", "paciente", "asistente"), listarRecetas);
+// 📋 Listar recetas (autorizado para todos los roles)
+router.get(
+  "/",
+  validarRol("admin", "doctor", "paciente", "asistente"),
+  listarRecetas
+);
 
-// 🔄 Editar receta (solo doctor que la creó o admin)
+// ✏️ Editar receta (solo doctor creador o admin)
 router.put(
   "/:id",
   validarRol("admin", "doctor"),
+  validarPropiedadPorId("receta"),
   upload.array("archivos"),
-  validarRecetaEdicion, // ⬅ validador flexible
+  validarRecetaEdicion,
   editarReceta
 );
 
-// 🗑️ Eliminar receta (solo admin)
-router.delete("/:id", validarRol("admin"), eliminarReceta);
+// ❌ Eliminar receta (solo admin con propiedad)
+router.delete(
+  "/:id",
+  validarRol("admin"),
+  validarPropiedadPorId("receta"),
+  eliminarReceta
+);
 
 module.exports = router;

@@ -1,4 +1,5 @@
 const twilio = require("twilio");
+const logger = require("../config/logger");
 
 const client = twilio(
   process.env.TWILIO_ACCOUNT_SID,
@@ -26,9 +27,9 @@ const enviarWhatsapp = async (numero, mensaje) => {
       body: mensaje,
     });
 
-    console.log(`📲 WhatsApp enviado a ${numeroFormateado}`);
+    logger.info(`📲 WhatsApp enviado a ${numeroFormateado}`);
   } catch (error) {
-    console.error("❌ Error al enviar WhatsApp:", error.message);
+    logger.error(`❌ Error al enviar WhatsApp a ${numero}: ${error.message}`);
   }
 };
 

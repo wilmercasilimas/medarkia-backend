@@ -1,6 +1,7 @@
 const Especialidad = require("./Especialidad");
 const Doctor = require("../doctor/Doctor");
 const mongoose = require("mongoose");
+const logger = require("../../config/logger");
 
 // ✅ Crear nueva especialidad (solo admin)
 const crearEspecialidad = async (req, res) => {
@@ -9,6 +10,7 @@ const crearEspecialidad = async (req, res) => {
 
     const existe = await Especialidad.findOne({ nombre });
     if (existe) {
+      logger.warn(`⚠️ Especialidad duplicada: ${nombre}`);
       return res
         .status(400)
         .json({ message: "Ya existe una especialidad con ese nombre." });
@@ -17,12 +19,13 @@ const crearEspecialidad = async (req, res) => {
     const nueva = new Especialidad({ nombre, descripcion });
     await nueva.save();
 
+    logger.info(`✅ Especialidad creada: ${nombre}`);
     res.status(201).json({
       message: "Especialidad creada correctamente.",
       especialidad: nueva,
     });
   } catch (error) {
-    console.error("Error al crear especialidad:", error);
+    logger.error(`❌ Error al crear especialidad: ${error.message}`);
     res
       .status(500)
       .json({ message: "Error interno al crear la especialidad." });
@@ -35,7 +38,7 @@ const listarEspecialidades = async (_req, res) => {
     const especialidades = await Especialidad.find().sort({ nombre: 1 });
     res.json(especialidades);
   } catch (error) {
-    console.error("Error al listar especialidades:", error);
+    logger.error(`❌ Error al listar especialidades: ${error.message}`);
     res.status(500).json({ message: "Error al obtener las especialidades." });
   }
 };
@@ -53,7 +56,6 @@ const listarEspecialidadesConDoctores = async (_req, res) => {
         select: "nombre apellido estado",
       });
 
-    // Agrupar por especialidad
     const agrupadas = {};
 
     data.forEach((doc) => {
@@ -78,7 +80,7 @@ const listarEspecialidadesConDoctores = async (_req, res) => {
 
     res.json(Object.values(agrupadas));
   } catch (error) {
-    console.error("❌ Error al obtener especialidades con doctores:", error);
+    logger.error(`❌ Error al obtener especialidades con doctores: ${error.message}`);
     res
       .status(500)
       .json({ message: "Error al obtener especialidades detalladas." });
@@ -90,6 +92,7 @@ const editarEspecialidad = async (req, res) => {
   try {
     const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
+      logger.warn("⚠️ ID de especialidad inválido.");
       return res.status(400).json({ message: "ID de especialidad inválido." });
     }
 
@@ -97,6 +100,7 @@ const editarEspecialidad = async (req, res) => {
 
     const especialidad = await Especialidad.findById(id);
     if (!especialidad) {
+      logger.warn("⚠️ Especialidad no encontrada.");
       return res.status(404).json({ message: "Especialidad no encontrada." });
     }
 
@@ -105,9 +109,10 @@ const editarEspecialidad = async (req, res) => {
 
     await especialidad.save();
 
+    logger.info(`✅ Especialidad actualizada: ${especialidad.nombre}`);
     res.json({ message: "Especialidad actualizada.", especialidad });
   } catch (error) {
-    console.error("Error al editar especialidad:", error);
+    logger.error(`❌ Error al editar especialidad: ${error.message}`);
     res.status(500).json({ message: "Error al editar la especialidad." });
   }
 };
@@ -117,18 +122,21 @@ const eliminarEspecialidad = async (req, res) => {
   try {
     const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
+      logger.warn("⚠️ ID de especialidad inválido.");
       return res.status(400).json({ message: "ID de especialidad inválido." });
     }
 
     const especialidad = await Especialidad.findById(id);
     if (!especialidad) {
+      logger.warn("⚠️ Especialidad no encontrada.");
       return res.status(404).json({ message: "Especialidad no encontrada." });
     }
 
     await especialidad.deleteOne();
+    logger.info(`✅ Especialidad eliminada: ${especialidad.nombre}`);
     res.json({ message: "Especialidad eliminada correctamente." });
   } catch (error) {
-    console.error("Error al eliminar especialidad:", error);
+    logger.error(`❌ Error al eliminar especialidad: ${error.message}`);
     res.status(500).json({ message: "Error al eliminar la especialidad." });
   }
 };

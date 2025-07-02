@@ -1,8 +1,12 @@
 const Doctor = require("./Doctor");
 const User = require("../user/User");
 const { procesarAvatar } = require("../../helpers/gestorAvatar");
-const { obtenerPublicIdDesdeUrl, eliminarImagen } = require("../../helpers/cloudinaryHelper");
+const {
+  obtenerPublicIdDesdeUrl,
+  eliminarImagen,
+} = require("../../helpers/cloudinaryHelper");
 const mongoose = require("mongoose");
+const logger = require("../../config/logger");
 
 // Crear doctor (y vincular a un usuario existente)
 const crearDoctor = async (req, res) => {
@@ -10,18 +14,29 @@ const crearDoctor = async (req, res) => {
     const { usuario, especialidad } = req.body;
 
     if (!usuario || !especialidad) {
-      return res.status(400).json({ message: "Todos los campos son obligatorios." });
+      return res
+        .status(400)
+        .json({ message: "Todos los campos son obligatorios." });
     }
 
     if (!mongoose.Types.ObjectId.isValid(usuario)) {
+      logger.warn(`❗ ID de usuario inválido al crear doctor: ${usuario}`);
       return res.status(400).json({ message: "ID de usuario inválido." });
     }
 
     const user = await User.findById(usuario);
-    if (!user) return res.status(404).json({ message: "Usuario no encontrado." });
+    if (!user) {
+      logger.warn(`❗ Usuario no encontrado al crear doctor: ${usuario}`);
+      return res.status(404).json({ message: "Usuario no encontrado." });
+    }
 
     const yaEsDoctor = await Doctor.findOne({ usuario });
-    if (yaEsDoctor) return res.status(400).json({ message: "Este usuario ya está registrado como doctor." });
+    if (yaEsDoctor) {
+      logger.warn(`❗ Usuario ya es doctor: ${usuario}`);
+      return res
+        .status(400)
+        .json({ message: "Este usuario ya está registrado como doctor." });
+    }
 
     if (req.file) {
       user.avatar = await procesarAvatar(req.file, user.avatar);
@@ -35,10 +50,13 @@ const crearDoctor = async (req, res) => {
     });
 
     await nuevoDoctor.save();
+    logger.info(`✅ Doctor creado: ${nuevoDoctor._id} por usuario ${req.user?._id}`);
 
-    res.status(201).json({ message: "Doctor creado correctamente.", doctor: nuevoDoctor });
+    res
+      .status(201)
+      .json({ message: "Doctor creado correctamente.", doctor: nuevoDoctor });
   } catch (error) {
-    console.error("❌ Error al crear doctor:", error);
+    logger.error(`❌ Error al crear doctor: ${error.message}`);
     res.status(500).json({ message: "Error al crear doctor." });
   }
 };
@@ -51,8 +69,9 @@ const listarDoctores = async (_req, res) => {
       .populate("especialidad");
 
     res.json(doctores);
+    logger.info("📋 Doctores listados correctamente");
   } catch (error) {
-    console.error("❌ Error al listar doctores:", error);
+    logger.error(`❌ Error al listar doctores: ${error.message}`);
     res.status(500).json({ message: "Error al obtener la lista de doctores." });
   }
 };
@@ -62,13 +81,17 @@ const editarDoctor = async (req, res) => {
   try {
     const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
+      logger.warn(`❗ ID de doctor inválido al editar: ${id}`);
       return res.status(400).json({ message: "ID de doctor inválido." });
     }
 
     const { especialidad, estado } = req.body;
 
     const doctor = await Doctor.findById(id);
-    if (!doctor) return res.status(404).json({ message: "Doctor no encontrado." });
+    if (!doctor) {
+      logger.warn(`❗ Doctor no encontrado al editar: ${id}`);
+      return res.status(404).json({ message: "Doctor no encontrado." });
+    }
 
     if (especialidad) doctor.especialidad = especialidad;
     if (estado) doctor.estado = estado;
@@ -76,10 +99,11 @@ const editarDoctor = async (req, res) => {
     doctor.editado_por = req.user?._id || null;
 
     await doctor.save();
+    logger.info(`✏️ Doctor editado: ${doctor._id} por usuario ${req.user?._id}`);
 
     res.json({ message: "Doctor actualizado correctamente." });
   } catch (error) {
-    console.error("❌ Error al actualizar doctor:", error);
+    logger.error(`❌ Error al actualizar doctor: ${error.message}`);
     res.status(500).json({ message: "Error al actualizar doctor." });
   }
 };
@@ -89,11 +113,15 @@ const eliminarDoctor = async (req, res) => {
   try {
     const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
+      logger.warn(`❗ ID de doctor inválido al eliminar: ${id}`);
       return res.status(400).json({ message: "ID de doctor inválido." });
     }
 
     const doctor = await Doctor.findById(id).populate("usuario");
-    if (!doctor) return res.status(404).json({ message: "Doctor no encontrado." });
+    if (!doctor) {
+      logger.warn(`❗ Doctor no encontrado al eliminar: ${id}`);
+      return res.status(404).json({ message: "Doctor no encontrado." });
+    }
 
     if (doctor.usuario) {
       const publicId = doctor.usuario.avatar?.public_id;
@@ -105,10 +133,11 @@ const eliminarDoctor = async (req, res) => {
     }
 
     await doctor.deleteOne();
+    logger.info(`🗑️ Doctor eliminado: ${id} por usuario ${req.user?._id}`);
 
     res.json({ message: "Doctor eliminado correctamente." });
   } catch (error) {
-    console.error("❌ Error al eliminar doctor:", error);
+    logger.error(`❌ Error al eliminar doctor: ${error.message}`);
     res.status(500).json({ message: "Error al eliminar doctor." });
   }
 };
@@ -118,30 +147,48 @@ const asignarAsistente = async (req, res) => {
     const doctorId = req.params.id;
     const { asistenteId } = req.body;
 
-    if (!mongoose.Types.ObjectId.isValid(doctorId) || !mongoose.Types.ObjectId.isValid(asistenteId)) {
+    if (
+      !mongoose.Types.ObjectId.isValid(doctorId) ||
+      !mongoose.Types.ObjectId.isValid(asistenteId)
+    ) {
+      logger.warn(`❗ ID inválido al asignar asistente: doctor=${doctorId}, asistente=${asistenteId}`);
       return res.status(400).json({ message: "ID inválido." });
     }
 
     const doctor = await Doctor.findById(doctorId);
-    if (!doctor) return res.status(404).json({ message: "Doctor no encontrado." });
+    if (!doctor) {
+      logger.warn(`❗ Doctor no encontrado al asignar asistente: ${doctorId}`);
+      return res.status(404).json({ message: "Doctor no encontrado." });
+    }
 
     const asistente = await User.findById(asistenteId);
     if (!asistente || asistente.rol !== "asistente") {
-      return res.status(400).json({ message: "El usuario no es un asistente válido." });
+      logger.warn(`❗ Usuario no es asistente válido: ${asistenteId}`);
+      return res
+        .status(400)
+        .json({ message: "El usuario no es un asistente válido." });
     }
 
     // Evitar duplicados
     if (doctor.asistentes.includes(asistenteId)) {
-      return res.status(409).json({ message: "El asistente ya está asociado a este doctor." });
+      logger.warn(`❗ Asistente ya asociado al doctor: ${asistenteId} → ${doctorId}`);
+      return res
+        .status(409)
+        .json({ message: "El asistente ya está asociado a este doctor." });
     }
 
     doctor.asistentes.push(asistenteId);
     doctor.editado_por = req.user._id;
     await doctor.save();
 
-    res.json({ message: "Asistente asignado correctamente al doctor.", doctor });
+    logger.info(`👥 Asistente ${asistenteId} asignado al doctor ${doctorId}`);
+
+    res.json({
+      message: "Asistente asignado correctamente al doctor.",
+      doctor,
+    });
   } catch (error) {
-    console.error("❌ Error al asignar asistente:", error);
+    logger.error(`❌ Error al asignar asistente: ${error.message}`);
     res.status(500).json({ message: "Error al asignar asistente al doctor." });
   }
 };
@@ -151,5 +198,5 @@ module.exports = {
   listarDoctores,
   editarDoctor,
   eliminarDoctor,
-  asignarAsistente
+  asignarAsistente,
 };

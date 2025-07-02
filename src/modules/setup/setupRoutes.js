@@ -1,5 +1,6 @@
 const express = require("express");
 const User = require("../user/User");
+const logger = require("../../config/logger"); // ✅ Agregado
 const router = express.Router();
 
 /**
@@ -7,7 +8,6 @@ const router = express.Router();
  * Permite crear un usuario admin si no hay usuarios en la base de datos.
  * Esta ruta se debe ELIMINAR o COMENTAR después de usarla.
  */
-
 router.post("/admin-temporal", async (req, res) => {
   try {
     // const usuarios = await User.find();
@@ -25,12 +25,11 @@ router.post("/admin-temporal", async (req, res) => {
         .json({ message: "Todos los campos son obligatorios." });
     }
 
-    // 👇 Aquí NO se hace hash manualmente
     const nuevoUsuario = new User({
       nombre,
       apellido,
       email,
-      password, // ← texto plano, será hasheado por el modelo
+      password,
       telefono,
       rol: "admin",
       avatar: {
@@ -40,6 +39,8 @@ router.post("/admin-temporal", async (req, res) => {
     });
 
     await nuevoUsuario.save();
+
+    logger.info(`🛠️ Usuario administrador creado: ${email}`);
 
     res.status(201).json({
       message: "✅ Usuario administrador creado correctamente.",
@@ -51,7 +52,7 @@ router.post("/admin-temporal", async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("❌ Error en setup:", error);
+    logger.error(`❌ Error en setup inicial: ${error.message}`);
     res.status(500).json({ message: "Error al crear el usuario inicial." });
   }
 });

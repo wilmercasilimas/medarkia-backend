@@ -25,6 +25,6 @@ router.put("/:id", validarRol("doctor", "asistente"), validarCita, editarCita);
 router.delete("/:id", validarRol("doctor", "asistente", "admin"), eliminarCita);
 
 // Listar citas con filtros
-router.get("/", validarRol("doctor", "asistente", "admin"), listarCitas);
+router.get("/", validarRol("doctor", "asistente", "admin", "paciente"), listarCitas);
 
 module.exports = router;

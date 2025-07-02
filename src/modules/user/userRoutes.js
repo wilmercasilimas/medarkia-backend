@@ -20,7 +20,7 @@ router.use(auth);
 // 🆕 Crear usuario (solo admin)
 router.post(
   "/",
-  //validarRol("admin"),
+  validarRol("admin"),
   upload.single("avatar"),
   validarUsuario,
   crearUsuario

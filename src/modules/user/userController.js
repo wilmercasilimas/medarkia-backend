@@ -1,14 +1,17 @@
 const User = require("./User");
 const bcrypt = require("bcrypt");
 const mongoose = require("mongoose");
+const logger = require("../../config/logger");
 const { procesarAvatar } = require("../../helpers/gestorAvatar");
 
 // Crear nuevo usuario
 const crearUsuario = async (req, res) => {
   try {
-    const { nombre, apellido, cedula, email, password, telefono, rol } = req.body;
+    const { nombre, apellido, cedula, email, password, telefono, rol } =
+      req.body;
 
     if (!nombre || !apellido || !email || !password || !telefono || !cedula) {
+      logger.warn("⚠️ Campos obligatorios faltantes al crear usuario.");
       return res.status(400).json({
         message: "Todos los campos obligatorios deben estar completos.",
       });
@@ -16,6 +19,7 @@ const crearUsuario = async (req, res) => {
 
     const existeUsuario = await User.findOne({ email });
     if (existeUsuario) {
+      logger.warn("⚠️ Email ya registrado.");
       return res.status(409).json({ message: "El email ya está registrado." });
     }
 
@@ -28,13 +32,14 @@ const crearUsuario = async (req, res) => {
       email,
       password,
       telefono,
-      telefono,
       rol,
       avatar,
       creado_por: req.user?._id || null,
     });
 
     await nuevoUsuario.save();
+
+    logger.info(`✅ Usuario creado: ${email}`);
 
     res.status(201).json({
       message: "Usuario creado correctamente.",
@@ -50,25 +55,45 @@ const crearUsuario = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("❌ Error al crear usuario:", error);
+    logger.error("❌ Error al crear usuario: " + error.message);
     res.status(500).json({ message: "Error al crear el usuario." });
   }
 };
 
 // Listar usuarios
+// Listar usuarios
 const listarUsuarios = async (req, res) => {
   try {
-    const { nombre, apellido, cedula } = req.query;
+    const { rol, cedula, texto, page = 1, limit = 10 } = req.query;
     const filtro = {};
 
-    if (nombre) filtro.nombre = new RegExp(nombre, "i");
-    if (apellido) filtro.apellido = new RegExp(apellido, "i");
+    if (rol) {
+      if (!["admin", "doctor", "asistente", "paciente"].includes(rol)) {
+        logger.warn("⚠️ Rol inválido al listar usuarios.");
+        return res.status(400).json({ message: "Rol inválido." });
+      }
+      filtro.rol = rol;
+    }
+
     if (cedula) filtro.cedula = cedula;
 
-    const usuarios = await User.find(filtro).select("-password");
+    if (texto) {
+      filtro.$or = [
+        { nombre: { $regex: texto, $options: "i" } },
+        { apellido: { $regex: texto, $options: "i" } },
+      ];
+    }
+
+    const usuarios = await User.find(filtro)
+      .select("-password")
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(Number(limit));
+
+    logger.info("📋 Usuarios listados.");
     res.json(usuarios);
   } catch (error) {
-    console.error("❌ Error al listar usuarios:", error);
+    logger.error("❌ Error al listar usuarios: " + error.message);
     res.status(500).json({ message: "Error al obtener usuarios." });
   }
 };
@@ -79,11 +104,13 @@ const actualizarUsuario = async (req, res) => {
     const { id } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
+      logger.warn("⚠️ ID inválido para actualizar usuario.");
       return res.status(400).json({ message: "ID inválido." });
     }
 
     const usuario = await User.findById(id);
     if (!usuario) {
+      logger.warn("⚠️ Usuario no encontrado para actualizar.");
       return res.status(404).json({ message: "Usuario no encontrado." });
     }
 
@@ -104,9 +131,11 @@ const actualizarUsuario = async (req, res) => {
 
     await usuario.save();
 
+    logger.info(`✏️ Usuario actualizado: ${id}`);
+
     res.json({ message: "Usuario actualizado correctamente." });
   } catch (error) {
-    console.error("❌ Error al actualizar usuario:", error);
+    logger.error("❌ Error al actualizar usuario: " + error.message);
     res.status(500).json({ message: "Error al actualizar el usuario." });
   }
 };
@@ -117,29 +146,33 @@ const actualizarAvatar = async (req, res) => {
     const { id } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
+      logger.warn("⚠️ ID inválido para actualizar avatar.");
       return res.status(400).json({ message: "ID inválido." });
     }
 
     const archivo = req.file;
-
     if (!archivo) {
+      logger.warn("⚠️ No se subió archivo para actualizar avatar.");
       return res.status(400).json({ message: "No se subió ningún archivo." });
     }
 
     const usuario = await User.findById(id);
     if (!usuario) {
+      logger.warn("⚠️ Usuario no encontrado para actualizar avatar.");
       return res.status(404).json({ message: "Usuario no encontrado." });
     }
 
     usuario.avatar = await procesarAvatar(archivo, usuario.avatar);
     await usuario.save();
 
+    logger.info(`🖼️ Avatar actualizado: ${id}`);
+
     res.json({
       message: "Avatar actualizado correctamente.",
       avatar: usuario.avatar,
     });
   } catch (error) {
-    console.error("❌ Error al actualizar avatar:", error);
+    logger.error("❌ Error al actualizar avatar: " + error.message);
     res.status(500).json({ message: "Error al actualizar avatar." });
   }
 };
@@ -150,23 +183,30 @@ const eliminarUsuario = async (req, res) => {
     const { id } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
+      logger.warn("⚠️ ID inválido para eliminar usuario.");
       return res.status(400).json({ message: "ID inválido." });
     }
 
     const usuario = await User.findById(id);
     if (!usuario) {
+      logger.warn("⚠️ Usuario no encontrado para eliminar.");
       return res.status(404).json({ message: "Usuario no encontrado." });
     }
 
     if (usuario.email === "wilmercasilimas@gmail.com") {
-      return res.status(403).json({ message: "Este usuario no puede ser eliminado." });
+      logger.warn("⚠️ Intento de eliminar usuario protegido.");
+      return res
+        .status(403)
+        .json({ message: "Este usuario no puede ser eliminado." });
     }
 
     if (usuario.rol === "admin") {
       const admins = await User.find({ rol: "admin" });
       if (admins.length <= 2) {
+        logger.warn("⚠️ No se puede eliminar el último admin.");
         return res.status(403).json({
-          message: "Debe haber al menos 2 administradores activos. No se puede eliminar este usuario.",
+          message:
+            "Debe haber al menos 2 administradores activos. No se puede eliminar este usuario.",
         });
       }
     }
@@ -179,38 +219,59 @@ const eliminarUsuario = async (req, res) => {
 
     await usuario.deleteOne();
 
+    logger.info(`🗑️ Usuario eliminado: ${id}`);
+
     res.json({ message: "Usuario eliminado correctamente." });
   } catch (error) {
-    console.error("❌ Error al eliminar usuario:", error);
+    logger.error("❌ Error al eliminar usuario: " + error.message);
     res.status(500).json({ message: "Error al eliminar el usuario." });
   }
 };
 
 const asignarDoctor = async (req, res) => {
-  const { id } = req.params;
-  const { doctorId } = req.body;
+  try {
+    const { id } = req.params;
+    const { doctorId } = req.body;
 
-  if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(doctorId)) {
-    return res.status(400).json({ message: "ID inválido." });
+    if (
+      !mongoose.Types.ObjectId.isValid(id) ||
+      !mongoose.Types.ObjectId.isValid(doctorId)
+    ) {
+      logger.warn("⚠️ ID inválido para asignar doctor.");
+      return res.status(400).json({ message: "ID inválido." });
+    }
+
+    const asistente = await User.findById(id);
+    const doctor = await User.findById(doctorId);
+
+    if (!asistente || asistente.rol !== "asistente") {
+      logger.warn("⚠️ Asistente inválido para asignar doctor.");
+      return res
+        .status(404)
+        .json({ message: "Asistente no encontrado o no es rol asistente." });
+    }
+
+    if (!doctor || doctor.rol !== "doctor") {
+      logger.warn("⚠️ Doctor inválido para asignación.");
+      return res
+        .status(404)
+        .json({ message: "Doctor no encontrado o no es rol doctor." });
+    }
+
+    asistente.asociado_a = doctorId;
+    await asistente.save();
+
+    logger.info(`🔗 Doctor asignado al asistente: ${id} → ${doctorId}`);
+
+    res.json({
+      message: "Doctor asignado al asistente correctamente.",
+      asistente,
+    });
+  } catch (error) {
+    logger.error("❌ Error al asignar doctor: " + error.message);
+    res.status(500).json({ message: "Error al asignar doctor al asistente." });
   }
-
-  const asistente = await User.findById(id);
-  const doctor = await User.findById(doctorId);
-
-  if (!asistente || asistente.rol !== "asistente") {
-    return res.status(404).json({ message: "Asistente no encontrado o no es rol asistente." });
-  }
-
-  if (!doctor || doctor.rol !== "doctor") {
-    return res.status(404).json({ message: "Doctor no encontrado o no es rol doctor." });
-  }
-
-  asistente.asociado_a = doctorId;
-  await asistente.save();
-
-  res.json({ message: "Doctor asignado al asistente correctamente.", asistente });
 };
-
 
 module.exports = {
   crearUsuario,
@@ -218,5 +279,5 @@ module.exports = {
   actualizarUsuario,
   eliminarUsuario,
   actualizarAvatar,
-  asignarDoctor
+  asignarDoctor,
 };

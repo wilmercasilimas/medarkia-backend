@@ -2,6 +2,7 @@ const { enviarEmail } = require("../../helpers/emailHelper");
 const { enviarWhatsapp } = require("../../helpers/whatsappHelper");
 const Doctor = require("../doctor/Doctor");
 const Paciente = require("../paciente/Paciente");
+const logger = require("../../config/logger"); // ✅ Agregar logger
 
 /**
  * Envía notificaciones por correo y WhatsApp al paciente y doctor al crear o editar una cita.
@@ -44,7 +45,7 @@ Tienes una cita ${tipoAccion} con el paciente ${paciente.usuario.nombre} el ${fe
     await enviarEmail(paciente.usuario.email, asunto, mensajePacienteEmail);
     await enviarEmail(doctor.usuario.email, asunto, mensajeDoctorEmail);
 
-    // 📲 WHATSAPP (profesional, breve, sobrio)
+    // 📲 WHATSAPP
     const mensajePacienteWhatsapp = 
 `Hola ${paciente.usuario.nombre},
 
@@ -71,9 +72,9 @@ Tienes una cita ${tipoAccion} con *${paciente.usuario.nombre}* el *${fechaFormat
     await enviarWhatsapp(paciente.usuario.telefono, mensajePacienteWhatsapp);
     await enviarWhatsapp(doctor.usuario.telefono, mensajeDoctorWhatsapp);
 
-    console.log("✅ Notificaciones por correo y WhatsApp enviadas.");
+    logger.info("📩 Notificaciones por correo y WhatsApp enviadas.");
   } catch (error) {
-    console.error("❌ Error en notificarCita:", error.message);
+    logger.error(`❌ Error en notificarCita: ${error.message}`);
   }
 };
 

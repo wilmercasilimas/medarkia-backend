@@ -1,5 +1,6 @@
 const User = require("../user/User");
 const jwt = require("jsonwebtoken");
+const logger = require("../../config/logger");
 
 // Registrar nuevo usuario
 const registrar = async (req, res) => {
@@ -8,13 +9,17 @@ const registrar = async (req, res) => {
 
     // Validar campos
     if (!nombre || !apellido || !email || !password) {
-      return res.status(400).json({ message: "Todos los campos son obligatorios." });
+      return res
+        .status(400)
+        .json({ message: "Todos los campos son obligatorios." });
     }
 
     // Verificar si ya existe
     const existeUsuario = await User.findOne({ email });
     if (existeUsuario) {
-      return res.status(400).json({ message: "Este correo ya está registrado." });
+      return res
+        .status(400)
+        .json({ message: "Este correo ya está registrado." });
     }
 
     // Crear usuario
@@ -23,7 +28,8 @@ const registrar = async (req, res) => {
 
     res.status(201).json({ message: "Usuario registrado correctamente." });
   } catch (error) {
-    res.status(500).json({ message: "Error al registrar usuario.", error });
+    logger.error(`❌ Error al registrar usuario: ${error.message}`);
+    res.status(500).json({ message: "Error al registrar usuario." });
   }
 };
 
@@ -34,10 +40,12 @@ const login = async (req, res) => {
 
     // Validar
     const usuario = await User.findOne({ email });
-    if (!usuario) return res.status(404).json({ message: "Usuario no encontrado." });
+    if (!usuario)
+      return res.status(404).json({ message: "Usuario no encontrado." });
 
     const passwordValido = await usuario.compararPassword(password);
-    if (!passwordValido) return res.status(401).json({ message: "Credenciales inválidas." });
+    if (!passwordValido)
+      return res.status(401).json({ message: "Credenciales inválidas." });
 
     // Generar token
     const token = jwt.sign(
@@ -57,7 +65,8 @@ const login = async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ message: "Error al iniciar sesión.", error });
+    logger.error(`❌ Error al iniciar sesión: ${error.message}`);
+    res.status(500).json({ message: "Error al iniciar sesión." });
   }
 };
 

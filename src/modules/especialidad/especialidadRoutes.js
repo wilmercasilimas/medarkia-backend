@@ -4,29 +4,40 @@ const router = express.Router();
 const {
   crearEspecialidad,
   listarEspecialidades,
-  listarEspecialidadesConDoctores,
   editarEspecialidad,
   eliminarEspecialidad,
+  listarEspecialidadesConDoctores
 } = require("./especialidadController");
 
 const auth = require("../../middlewares/auth");
 const validarRol = require("../../middlewares/validarRol");
+const validarEspecialidad = require("./validarEspecialidad");
+const { isValidObjectId } = require("mongoose");
 
-// 📌 Ruta base: /api/especialidades
+// 🛡️ Middleware para validar ID
+const validarId = (req, res, next) => {
+  const { id } = req.params;
+  if (!isValidObjectId(id)) {
+    return res.status(400).json({ message: "ID inválido." });
+  }
+  next();
+};
 
-// ✅ Crear nueva especialidad (solo admin)
-router.post("/", auth, validarRol("admin"), crearEspecialidad);
+// 🔐 Todas las rutas requieren autenticación
+router.use(auth);
 
-// ✅ Listar todas las especialidades (todos los usuarios autenticados)
-router.get("/", auth, listarEspecialidades);
+// 🆕 Crear especialidad (solo admin)
+router.post("/", validarRol("admin"), validarEspecialidad, crearEspecialidad);
 
-// ✅ Listar especialidades con doctores asociados
-router.get("/con-doctores", auth, listarEspecialidadesConDoctores);
+// 📋 Listar especialidades (todos los roles)
+router.get("/", listarEspecialidades);
 
-// ✅ Editar especialidad (solo admin)
-router.put("/:id", auth, validarRol("admin"), editarEspecialidad);
+// ✏️ Editar especialidad (solo admin)
+router.put("/:id", validarRol("admin"), validarId, validarEspecialidad, editarEspecialidad);
 
-// ✅ Eliminar especialidad (solo admin)
-router.delete("/:id", auth, validarRol("admin"), eliminarEspecialidad);
+// 🗑️ Eliminar especialidad (solo admin)
+router.delete("/:id", validarRol("admin"), validarId, eliminarEspecialidad);
 
+// ✅ NUEVA RUTA: listar especialidades con doctores
+router.get("/con-doctores", validarRol("admin", "doctor", "asistente", "paciente"), listarEspecialidadesConDoctores);
 module.exports = router;

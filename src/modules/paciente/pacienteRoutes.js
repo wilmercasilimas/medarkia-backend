@@ -11,20 +11,30 @@ const {
 const auth = require("../../middlewares/auth");
 const validarRol = require("../../middlewares/validarRol");
 const validarPaciente = require("./validarPaciente");
+const { isValidObjectId } = require("mongoose");
 
-// 🔐 Todas las rutas requieren autenticación
+// ✅ Middleware para validar el formato del ID
+const validarId = (req, res, next) => {
+  const { id } = req.params;
+  if (!isValidObjectId(id)) {
+    return res.status(400).json({ message: "ID inválido." });
+  }
+  next();
+};
+
+// 🔐 Middleware global de autenticación
 router.use(auth);
+
+// 📋 Listar pacientes (admin, doctor, asistente)
+router.get("/", validarRol("admin", "doctor", "asistente"), listarPacientes);
 
 // 🆕 Crear paciente (solo admin o asistente)
 router.post("/", validarRol("admin", "asistente"), validarPaciente, crearPaciente);
 
-// 📋 Listar todos los pacientes
-router.get("/", validarRol("admin", "asistente", "doctor"), listarPacientes);
+// ✏️ Editar paciente (solo admin o asistente)
+router.put("/:id", validarRol("admin", "asistente"), validarId, validarPaciente, editarPaciente);
 
-// 🔄 Editar paciente
-router.put("/:id", validarRol("admin", "asistente"), validarPaciente, editarPaciente);
-
-// ❌ Eliminar paciente
-router.delete("/:id", validarRol("admin"), eliminarPaciente);
+// ❌ Eliminar paciente (solo admin)
+router.delete("/:id", validarRol("admin"), validarId, eliminarPaciente);
 
 module.exports = router;

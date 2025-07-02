@@ -1,3 +1,4 @@
+const logger = require("../config/logger");
 const cloudinary = require("cloudinary").v2;
 const fs = require("fs");
 
@@ -25,7 +26,8 @@ const subirImagen = async (archivoPath, carpeta = "medarkia/usuarios") => {
       public_id: resultado.public_id,
     };
   } catch (error) {
-    console.error("❌ Error al subir imagen a Cloudinary:", error);
+    logger.error(`❌ Error al subir imagen a Cloudinary: ${error.message}`);
+
     throw new Error("No se pudo subir la imagen.");
   }
 };
@@ -36,7 +38,7 @@ const eliminarImagen = async (publicId) => {
       await cloudinary.uploader.destroy(publicId);
     }
   } catch (error) {
-    console.error("❌ Error al eliminar imagen de Cloudinary:", error);
+    logger.error(`❌ Error al eliminar imagen de Cloudinary: ${error.message}`);
   }
 };
 
@@ -45,7 +47,8 @@ const obtenerPublicIdDesdeUrl = (url) => {
     const match = url.match(/upload\/(?:v\d+\/)?(.+)\.[a-zA-Z]+$/);
     return match ? match[1] : null;
   } catch (error) {
-    console.error("Error extrayendo public_id:", error);
+    logger.error(`❌ Error extrayendo public_id: ${error.message}`);
+
     return null;
   }
 };
