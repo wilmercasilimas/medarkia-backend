@@ -133,6 +133,34 @@ const editarPaciente = async (req, res) => {
       return res.status(404).json({ message: "Paciente no encontrado." });
     }
 
+    // ⛔ Validar permisos
+    if (req.user.rol === "doctor" || req.user.rol === "asistente") {
+      let doctor;
+
+      if (req.user.rol === "doctor") {
+        doctor = await Doctor.findOne({ usuario: req.user._id });
+      } else if (req.user.rol === "asistente") {
+        if (!req.user.asociado_a) {
+          logger.warn("⚠️ Asistente sin doctor asociado.");
+          return res
+            .status(403)
+            .json({ message: "No tienes un doctor asignado." });
+        }
+        doctor = await Doctor.findOne({ usuario: req.user.asociado_a });
+      }
+
+      if (
+        !doctor ||
+        paciente.doctorAsignado?.toString() !== doctor._id.toString()
+      ) {
+        logger.warn("⛔ Acceso denegado: paciente no asignado.");
+        return res
+          .status(403)
+          .json({ message: "No tienes permiso para editar este paciente." });
+      }
+    }
+
+    // ✅ Editar campos si tiene permisos
     if (doctorAsignado) paciente.doctorAsignado = doctorAsignado;
     if (estado) paciente.estado = estado;
     if (observaciones) paciente.observaciones = observaciones;
@@ -163,6 +191,33 @@ const eliminarPaciente = async (req, res) => {
     if (!paciente) {
       logger.warn("⚠️ Paciente no encontrado para eliminar.");
       return res.status(404).json({ message: "Paciente no encontrado." });
+    }
+
+    // ⛔ Validación de permisos por rol
+    if (req.user.rol === "doctor" || req.user.rol === "asistente") {
+      let doctor;
+
+      if (req.user.rol === "doctor") {
+        doctor = await Doctor.findOne({ usuario: req.user._id });
+      } else if (req.user.rol === "asistente") {
+        if (!req.user.asociado_a) {
+          logger.warn("⚠️ Asistente sin doctor asociado.");
+          return res
+            .status(403)
+            .json({ message: "No tienes un doctor asignado." });
+        }
+        doctor = await Doctor.findOne({ usuario: req.user.asociado_a });
+      }
+
+      if (
+        !doctor ||
+        paciente.doctorAsignado?.toString() !== doctor._id.toString()
+      ) {
+        logger.warn("⛔ Acceso denegado: paciente no asignado.");
+        return res
+          .status(403)
+          .json({ message: "No tienes permiso para eliminar este paciente." });
+      }
     }
 
     await paciente.deleteOne();

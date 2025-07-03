@@ -4,6 +4,12 @@ const Paciente = require("../paciente/Paciente");
 const Especialidad = require("../especialidad/Especialidad");
 const { enviarEmail } = require("../../helpers/emailHelper");
 const { enviarWhatsapp } = require("../../helpers/whatsappHelper");
+const BloqueoHorario = require("../bloqueos/BloqueoHorario");
+const logger = require("../../config/logger");
+const {
+  generarIntervalos,
+  filtrarHorariosOcupados,
+} = require("../../helpers/agendaHelper");
 const mongoose = require("mongoose");
 const User = require("../user/User");
 
@@ -37,6 +43,7 @@ const crearCita = async (req, res) => {
       return res.status(400).json({ message: "Formato de fecha inválido." });
     }
 
+    // 🔴 Validar conflicto con otra cita
     const conflicto = await Cita.findOne({
       doctor,
       fecha: fechaObj,
@@ -49,6 +56,24 @@ const crearCita = async (req, res) => {
         .json({ message: "Ya existe una cita en ese horario para el doctor." });
     }
 
+    // 🔴 Validar conflicto con bloqueos de agenda
+    const bloqueos = await BloqueoHorario.find({
+      doctor,
+      fecha: fechaObj,
+    });
+
+    const conflictoBloqueo = bloqueos.some((b) => {
+      if (!b.horaInicio || !b.horaFin) return false;
+      return horaInicio < b.horaFin && horaFin > b.horaInicio;
+    });
+
+    if (conflictoBloqueo) {
+      return res
+        .status(409)
+        .json({ message: "Este horario está bloqueado para el doctor." });
+    }
+
+    // ✅ Resolver especialidad si no se envió
     let especialidadFinal = especialidad;
     if (!especialidad) {
       const doctorObj = await Doctor.findById(doctor);
@@ -70,6 +95,7 @@ const crearCita = async (req, res) => {
 
     await nuevaCita.save();
 
+    // 🔔 Notificaciones
     const pacientePop = await Paciente.findById(paciente).populate("usuario");
     const doctorPop = await Doctor.findById(doctor).populate("usuario");
     const especialidadPop = await Especialidad.findById(especialidadFinal);
@@ -86,7 +112,13 @@ const crearCita = async (req, res) => {
     const telPaciente = pacientePop?.usuario?.telefono || null;
     const especialidadNombre = especialidadPop?.nombre || "-";
 
-    const fechaTexto = new Date(fecha).toLocaleDateString();
+    const fechaTexto = new Date(fecha).toLocaleDateString("es-VE", {
+      timeZone: "UTC",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+
     const horaTexto = new Date(`1970-01-01T${horaInicio}`).toLocaleTimeString(
       "es-VE",
       {
@@ -189,7 +221,13 @@ const editarCita = async (req, res) => {
     const telPaciente = pacientePop?.usuario?.telefono || null;
     const especialidadNombre = especialidadPop?.nombre || "-";
 
-    const fechaTexto = new Date(cita.fecha).toLocaleDateString();
+    const fechaTexto = new Date(fecha).toLocaleDateString("es-VE", {
+      timeZone: "UTC",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+
     const horaTexto = new Date(
       `1970-01-01T${cita.horaInicio}`
     ).toLocaleTimeString("es-VE", {
@@ -346,9 +384,124 @@ const listarCitas = async (req, res) => {
   }
 };
 
+/**
+ * Consulta la disponibilidad de un doctor en una fecha dada.
+ */
+const obtenerDisponibilidadDoctor = async (req, res) => {
+  try {
+    const { doctorId, fecha, duracionMin = 30 } = req.query;
+
+    if (!doctorId || !fecha) {
+      return res.status(400).json({
+        message: "Faltan parámetros obligatorios: doctorId y fecha",
+      });
+    }
+
+    const doctor = await Doctor.findById(doctorId);
+    if (!doctor || !doctor.horario_inicio || !doctor.horario_fin) {
+      return res.status(404).json({
+        message: "Doctor no encontrado o sin horario configurado",
+      });
+    }
+
+    const duracion = parseInt(duracionMin);
+
+    const posibles = generarIntervalos(
+      doctor.horario_inicio,
+      doctor.horario_fin,
+      duracion
+    );
+
+    // 🔹 Citas del día
+    const citasEseDia = await Cita.find({
+      doctor: doctorId,
+      fecha: new Date(fecha),
+    });
+
+    // 🔹 Bloqueos del día
+    const bloqueos = await BloqueoHorario.find({
+      doctor: doctorId,
+      fecha: new Date(fecha),
+    });
+
+    // 🔹 Marcar horarios ocupados por citas
+    const ocupadosCitas = citasEseDia.map((c) => c.horaInicio);
+
+    // 🔹 Marcar horarios ocupados por bloqueos (con validación de campos)
+    const ocupadosBloqueos = bloqueos.flatMap((b) => {
+      if (!b.horaInicio || !b.horaFin) return [];
+      return generarIntervalos(b.horaInicio, b.horaFin, duracion);
+    });
+
+    const ocupados = [...new Set([...ocupadosCitas, ...ocupadosBloqueos])];
+
+    // 🔹 Calcular disponibles
+    const libres = posibles.filter((h) => !ocupados.includes(h));
+
+    res.json({
+      fecha,
+      doctor: doctorId,
+      duracionMin: duracion,
+      total: posibles.length,
+      libres,
+      ocupados,
+    });
+  } catch (error) {
+    logger.error(`❌ Error al consultar disponibilidad: ${error.message}`);
+    res.status(500).json({ message: "Error al consultar disponibilidad." });
+  }
+};
+
+const sugerirHorariosDisponibles = async (req, res) => {
+  try {
+    const { doctorId, fecha, duracionMin = 30, cantidad = 3 } = req.query;
+
+    if (!doctorId || !fecha) {
+      return res.status(400).json({
+        message: "Faltan parámetros obligatorios: doctorId y fecha",
+      });
+    }
+
+    const doctor = await Doctor.findById(doctorId);
+    if (!doctor || !doctor.horario_inicio || !doctor.horario_fin) {
+      return res.status(404).json({
+        message: "Doctor no encontrado o sin horario configurado",
+      });
+    }
+
+    const posibles = generarIntervalos(
+      doctor.horario_inicio,
+      doctor.horario_fin,
+      parseInt(duracionMin)
+    );
+
+    const citasEseDia = await Cita.find({
+      doctor: doctorId,
+      fecha: new Date(fecha),
+    });
+
+    const ocupados = citasEseDia.map((c) => c.horaInicio);
+    const libres = posibles.filter((hora) => !ocupados.includes(hora));
+
+    const sugerencias = libres.slice(0, parseInt(cantidad));
+
+    res.json({
+      fecha,
+      doctor: doctorId,
+      sugerencias,
+      totalDisponibles: libres.length,
+    });
+  } catch (error) {
+    logger.error(`❌ Error al sugerir horarios: ${error.message}`);
+    res.status(500).json({ message: "Error al sugerir horarios." });
+  }
+};
+
 module.exports = {
   crearCita,
   editarCita,
   eliminarCita,
   listarCitas,
+  obtenerDisponibilidadDoctor,
+  sugerirHorariosDisponibles,
 };

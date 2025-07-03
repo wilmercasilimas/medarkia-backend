@@ -42,7 +42,12 @@ const crearHistorial = async (req, res) => {
     const doctor = await Doctor.findById(nuevoHistorial.doctor).populate(
       "usuario"
     );
-    const fechaStr = new Date(nuevoHistorial.fecha).toLocaleDateString();
+    const fechaStr = new Date(historial.fecha).toLocaleDateString("es-VE", {
+      timeZone: "UTC",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
 
     const nombrePaciente = paciente?.usuario
       ? `${paciente.usuario.nombre} ${paciente.usuario.apellido}`
@@ -159,12 +164,9 @@ const listarHistoriales = async (req, res) => {
 
       const usuarios = await User.find(usuarioQuery).select("_id");
       if (!usuarios.length) {
-        return res
-          .status(404)
-          .json({
-            message:
-              "No se encontraron pacientes que coincidan con los filtros.",
-          });
+        return res.status(404).json({
+          message: "No se encontraron pacientes que coincidan con los filtros.",
+        });
       }
 
       const pacientes = await Paciente.find({
@@ -300,7 +302,12 @@ const editarHistorial = async (req, res) => {
       "usuario"
     );
     const doctor = await Doctor.findById(historial.doctor).populate("usuario");
-    const fechaStr = new Date(historial.fecha).toLocaleDateString();
+    const fechaStr = new Date(historial.fecha).toLocaleDateString("es-VE", {
+      timeZone: "UTC",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
 
     const nombrePaciente = paciente?.usuario
       ? `${paciente.usuario.nombre} ${paciente.usuario.apellido}`

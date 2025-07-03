@@ -18,6 +18,14 @@ const doctorSchema = new mongoose.Schema(
       enum: ["activo", "inactivo"],
       default: "activo",
     },
+
+    horario_inicio: {
+      type: String, // formato "HH:mm"
+    },
+    horario_fin: {
+      type: String, // formato "HH:mm"
+    },
+
     asistentes: [
       {
         type: mongoose.Schema.Types.ObjectId,

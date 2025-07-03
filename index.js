@@ -3,6 +3,7 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 const conectarDB = require("./src/config/db");
 const logger = require("./src/config/logger");
+const bloqueoRoutes = require("./src/modules/bloqueos/bloqueoRoutes");
 
 dotenv.config();
 
@@ -22,6 +23,7 @@ app.use("/api/pacientes", require("./src/modules/paciente/pacienteRoutes"));
 app.use("/api/citas", require("./src/modules/cita/citaRoutes"));
 app.use("/api/historiales", require("./src/modules/historial/historialRoutes"));
 app.use("/api/recetas", require("./src/modules/receta/recetaRoutes"));
+app.use("/api/bloqueos", bloqueoRoutes);
 
 // Middleware de errores no capturados (debe ir después de todas las rutas)
 app.use((err, req, res, next) => {

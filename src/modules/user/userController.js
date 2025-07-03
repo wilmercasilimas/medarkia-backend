@@ -114,14 +114,32 @@ const actualizarUsuario = async (req, res) => {
       return res.status(404).json({ message: "Usuario no encontrado." });
     }
 
+    // 🔒 Validar propiedad o rol admin
+    const esAdmin = req.user.rol === "admin";
+    const esPropietario = req.user._id.toString() === usuario._id.toString();
+
+    if (!esAdmin && !esPropietario) {
+      logger.warn("⛔ Acceso denegado para editar otro usuario.");
+      return res.status(403).json({
+        message: "No tienes permiso para modificar este usuario.",
+      });
+    }
+
     const { nombre, apellido, email, password, telefono, rol } = req.body;
 
     if (nombre) usuario.nombre = nombre;
     if (apellido) usuario.apellido = apellido;
     if (email) usuario.email = email;
     if (telefono) usuario.telefono = telefono;
-    if (rol) usuario.rol = rol;
-    if (password) usuario.password = await bcrypt.hash(password, 10);
+
+    // ✅ Solo admin puede cambiar el rol
+    if (rol && esAdmin) {
+      usuario.rol = rol;
+    }
+
+    if (password) {
+      usuario.password = await bcrypt.hash(password, 10);
+    }
 
     if (req.file) {
       usuario.avatar = await procesarAvatar(req.file, usuario.avatar);
@@ -160,6 +178,17 @@ const actualizarAvatar = async (req, res) => {
     if (!usuario) {
       logger.warn("⚠️ Usuario no encontrado para actualizar avatar.");
       return res.status(404).json({ message: "Usuario no encontrado." });
+    }
+
+    // 🔒 Validación de propiedad: solo dueño o admin
+    const esPropietario = usuario._id.toString() === req.user._id.toString();
+    const esAdmin = req.user.rol === "admin";
+
+    if (!esPropietario && !esAdmin) {
+      logger.warn("⛔ Acceso denegado para cambiar avatar de otro usuario.");
+      return res.status(403).json({
+        message: "No tienes permiso para modificar el avatar de este usuario.",
+      });
     }
 
     usuario.avatar = await procesarAvatar(archivo, usuario.avatar);
