@@ -5,6 +5,7 @@ const conectarDB = require("./src/config/db");
 const logger = require("./src/config/logger");
 const bloqueoRoutes = require("./src/modules/bloqueos/bloqueoRoutes");
 
+
 dotenv.config();
 
 const app = express();
@@ -24,6 +25,10 @@ app.use("/api/citas", require("./src/modules/cita/citaRoutes"));
 app.use("/api/historiales", require("./src/modules/historial/historialRoutes"));
 app.use("/api/recetas", require("./src/modules/receta/recetaRoutes"));
 app.use("/api/bloqueos", bloqueoRoutes);
+app.use("/api/auditoria", require("./src/modules/auditoria/auditoriaRoutes"));
+app.use("/api/archivos", require("./src/modules/archivo/archivoRoutes"));
+
+
 
 // Middleware de errores no capturados (debe ir después de todas las rutas)
 app.use((err, req, res, next) => {

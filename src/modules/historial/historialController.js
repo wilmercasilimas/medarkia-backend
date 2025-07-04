@@ -42,12 +42,15 @@ const crearHistorial = async (req, res) => {
     const doctor = await Doctor.findById(nuevoHistorial.doctor).populate(
       "usuario"
     );
-    const fechaStr = new Date(historial.fecha).toLocaleDateString("es-VE", {
-      timeZone: "UTC",
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
+    const fechaStr = new Date(nuevoHistorial.fecha).toLocaleDateString(
+      "es-VE",
+      {
+        timeZone: "UTC",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      }
+    );
 
     const nombrePaciente = paciente?.usuario
       ? `${paciente.usuario.nombre} ${paciente.usuario.apellido}`
