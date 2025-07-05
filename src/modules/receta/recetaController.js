@@ -5,6 +5,7 @@ const Paciente = require("../paciente/Paciente");
 const Doctor = require("../doctor/Doctor");
 const User = require("../user/User");
 const logger = require("../../config/logger");
+const PDFDocument = require("pdfkit");
 
 const {
   subirImagen,
@@ -230,11 +231,9 @@ const listarRecetas = async (req, res) => {
       const userAsistente = await User.findById(usuario._id);
       if (!userAsistente?.asociado_a) {
         logger.warn("⚠️ Asistente sin doctor asociado.");
-        return res
-          .status(403)
-          .json({
-            message: "Este asistente no está asociado a ningún doctor.",
-          });
+        return res.status(403).json({
+          message: "Este asistente no está asociado a ningún doctor.",
+        });
       }
       filtro.creado_por = userAsistente.asociado_a;
     }
@@ -376,9 +375,141 @@ const eliminarReceta = async (req, res) => {
   }
 };
 
+const exportarRecetasPDF = async (req, res) => {
+  try {
+    const { pacienteId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(pacienteId)) {
+      return res.status(400).json({ message: "ID de paciente inválido." });
+    }
+
+    const paciente = await Paciente.findById(pacienteId).populate("usuario");
+    if (!paciente) {
+      return res.status(404).json({ message: "Paciente no encontrado." });
+    }
+
+    const esAdmin = req.user.rol === "admin";
+    const esPaciente =
+      req.user.rol === "paciente" &&
+      paciente.usuario.toString() === req.user._id.toString();
+
+    const recetas = await RecetaMedica.find({ paciente: pacienteId })
+      .populate({
+        path: "doctor",
+        populate: { path: "usuario", model: "User" },
+      })
+      .sort({ fecha: -1 });
+
+    const esDoctor =
+      req.user.rol === "doctor" &&
+      recetas.some(
+        (r) => r.doctor?.usuario?._id?.toString() === req.user._id.toString()
+      );
+
+    if (!esAdmin && !esPaciente && !esDoctor) {
+      return res
+        .status(403)
+        .json({ message: "No tienes permiso para exportar estas recetas." });
+    }
+
+    const doc = new PDFDocument();
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="recetas_${pacienteId}.pdf"`
+    );
+    doc.pipe(res);
+
+    doc
+      .font("Helvetica")
+      .fontSize(16)
+      .text("Recetas Médicas - Medarkia", { align: "center" });
+    doc.moveDown();
+
+    // Doctor principal para firmar al final
+    const doctorPrincipal = recetas[0]?.doctor?.usuario;
+    const nombreDoctor = doctorPrincipal
+      ? `${doctorPrincipal.nombre} ${doctorPrincipal.apellido}`
+      : "Doctor";
+
+    for (const receta of recetas) {
+      const fecha = new Date(receta.fecha).toLocaleDateString("es-VE", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+
+      const nombrePaciente = paciente.usuario
+        ? `${paciente.usuario.nombre} ${paciente.usuario.apellido}`
+        : "Paciente";
+
+      const nombreDoctorReceta = receta.doctor?.usuario
+        ? `${receta.doctor.usuario.nombre} ${receta.doctor.usuario.apellido}`
+        : "Doctor";
+
+      doc
+        .font("Helvetica")
+        .fontSize(12)
+        .text(`Fecha: ${fecha}`)
+        .text(`Paciente: ${nombrePaciente}`)
+        .text(`Doctor: ${nombreDoctorReceta}`)
+        .moveDown(0.5);
+
+      doc.text(`Diagnóstico: ${receta.diagnostico || "-"}`);
+      doc.text(`Indicaciones generales: ${receta.indicaciones || "-"}`);
+      doc.moveDown(0.5);
+
+      if (receta.medicamentos && receta.medicamentos.length > 0) {
+        doc.text("Medicamentos:", { underline: true });
+        receta.medicamentos.forEach((med, index) => {
+          const partes = [];
+          if (med.dosis) partes.push(med.dosis);
+          if (med.frecuencia) partes.push(med.frecuencia);
+          if (med.duracion) partes.push(med.duracion);
+          if (med.indicaciones) partes.push(med.indicaciones);
+
+          doc.text(
+            `${index + 1}. ${med.nombre}${
+              partes.length ? " - " + partes.join(", ") : ""
+            }`
+          );
+        });
+        doc.moveDown();
+      }
+
+      doc.moveTo(50, doc.y).lineTo(550, doc.y).strokeColor("gray").stroke();
+      doc.moveDown();
+    }
+
+    // 🔽 Firma y sello al final del documento
+    doc.moveDown(2);
+    doc.text("Sello", 100, doc.y + 2);
+
+    doc
+      .moveTo(370, doc.y - 2)
+      .lineTo(500, doc.y - 2)
+      .strokeColor("black")
+      .stroke();
+
+    doc
+      .fontSize(10)
+      .text(`Firma: Dr. ${nombreDoctor}`, 370, doc.y + 2)
+      .text(`Tel: ${doctorPrincipal?.telefono || "-"}`, 370, doc.y + 14);
+
+    doc.moveDown(2);
+
+    doc.end();
+  } catch (error) {
+    logger.error(`❌ Error al exportar recetas PDF: ${error.message}`);
+    res.status(500).json({ message: "Error al exportar recetas." });
+  }
+};
+
+
 module.exports = {
   crearReceta,
   editarReceta,
   listarRecetas,
   eliminarReceta,
+  exportarRecetasPDF,
 };

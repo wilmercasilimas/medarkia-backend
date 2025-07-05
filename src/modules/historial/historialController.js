@@ -11,6 +11,7 @@ const { enviarEmail } = require("../../helpers/emailHelper");
 const { enviarWhatsapp } = require("../../helpers/whatsappHelper");
 const logger = require("../../config/logger");
 const User = require("../user/User");
+const PDFDocument = require("pdfkit");
 
 const crearHistorial = async (req, res) => {
   try {
@@ -381,9 +382,194 @@ const eliminarHistorial = async (req, res) => {
   }
 };
 
+const exportarHistorialPDF = async (req, res) => {
+  try {
+    const { pacienteId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(pacienteId)) {
+      return res.status(400).json({ message: "ID de paciente inválido." });
+    }
+
+    const paciente = await Paciente.findById(pacienteId).populate("usuario");
+    if (!paciente) {
+      return res.status(404).json({ message: "Paciente no encontrado." });
+    }
+
+    const esAdmin = req.user.rol === "admin";
+    const esPaciente =
+      req.user.rol === "paciente" &&
+      paciente.usuario.toString() === req.user._id.toString();
+
+    const historiales = await HistorialClinico.find({ paciente: pacienteId })
+      .populate({
+        path: "doctor",
+        populate: { path: "usuario", model: "User" },
+      })
+        .populate("cambios.editado_por", "nombre apellido")
+      .populate("especialidad")
+      .populate("archivos")
+      .sort({ fecha: -1 });
+
+    const esDoctor =
+      req.user.rol === "doctor" &&
+      historiales.some(
+        (h) => h.doctor?.usuario?._id?.toString() === req.user._id.toString()
+      );
+
+    if (!esAdmin && !esPaciente && !esDoctor) {
+      return res
+        .status(403)
+        .json({ message: "No tienes permiso para exportar este historial." });
+    }
+
+    const doc = new PDFDocument();
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="historial_${pacienteId}.pdf"`
+    );
+    doc.pipe(res);
+
+    // Título principal
+    doc.font("Helvetica").fontSize(16).text("Historial Clínico - Medarkia", {
+      align: "center",
+    });
+
+    // Datos paciente y doctor
+    const nombrePaciente = paciente.usuario
+      ? `${paciente.usuario.nombre} ${paciente.usuario.apellido}`
+      : "Paciente";
+
+    const doctorPrincipal = historiales[0]?.doctor?.usuario;
+    const nombreDoctor = doctorPrincipal
+      ? `${doctorPrincipal.nombre} ${doctorPrincipal.apellido}`
+      : "Doctor";
+
+    doc
+      .moveDown(0.5)
+      .fontSize(12)
+      .text(`Paciente: ${nombrePaciente}`, { align: "center" })
+      .text(`Doctor: ${nombreDoctor}`, { align: "center" })
+      .moveDown(1);
+
+    // Fichas de historial
+    // Fichas de historial
+    for (const historial of historiales) {
+      const fechaObj = new Date(historial.fecha);
+      const fecha = fechaObj.toLocaleDateString("es-VE", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+
+      const hora = fechaObj.toLocaleTimeString("es-VE", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      });
+
+      doc
+        .font("Helvetica")
+        .fontSize(12)
+        .text(`Fecha: ${fecha}`, { align: "right" })
+        .text(`Hora: ${hora}`, { align: "right" }) // ← Aquí se reemplazó la línea
+        .moveDown(0.5);
+
+      doc
+        .text(`Motivo: ${historial.motivoConsulta || "-"}`)
+        .text(`Diagnóstico: ${historial.diagnostico || "-"}`)
+        .text(`Tratamiento: ${historial.tratamiento || "-"}`)
+        .text(`Observaciones: ${historial.observaciones || "-"}`)
+        .moveDown();
+
+        // Si el usuario pidió el modo detallado (?detallado=true)
+if (req.query.detallado === "true") {
+  // Archivos adjuntos
+  if (historial.archivos?.length > 0) {
+    doc.font("Helvetica-Bold").text("Historial de cambios:", { underline: true });
+
+    historial.archivos.forEach((archivo, index) => {
+      doc.text(`  ${index + 1}. ${archivo.nombreOriginal} (${archivo.tipo})`);
+    });
+    doc.moveDown(0.5);
+  }
+
+      // Cambios históricos
+    if (historial.cambios?.length > 0) {
+      doc.font("Helvetica-Bold").text("Historial de cambios:", { underline: true });
+
+      historial.cambios.forEach((cambio, idx) => {
+        const fechaCambio = new Date(cambio.fecha).toLocaleString("es-VE", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        });
+
+        let nombreEditor = "Usuario";
+        if (typeof cambio.editado_por === "object" && cambio.editado_por !== null) {
+          if (cambio.editado_por.nombre && cambio.editado_por.apellido) {
+            nombreEditor = `${cambio.editado_por.nombre} ${cambio.editado_por.apellido}`;
+          } else if (cambio.editado_por.nombre) {
+            nombreEditor = cambio.editado_por.nombre;
+          }
+        }
+
+        doc
+          .font("Helvetica-Oblique")
+          .fontSize(10)
+          .text(
+            `${idx + 1}. Editado por ${nombreEditor} el ${fechaCambio}:`
+          )
+          .text(`   • Motivo: ${cambio.motivoConsulta || "-"}`)
+          .text(`   • Diagnóstico: ${cambio.diagnostico || "-"}`)
+          .text(`   • Tratamiento: ${cambio.tratamiento || "-"}`)
+          .text(`   • Observaciones: ${cambio.observaciones || "-"}`)
+          .moveDown(0.3);
+      });
+
+      doc.moveDown(0.5);
+    }
+
+}
+
+
+      doc.moveTo(50, doc.y).lineTo(550, doc.y).strokeColor("gray").stroke();
+      doc.moveDown();
+    }
+    // Firma y sello al final del documento
+    doc.moveDown(2);
+
+    // Línea izquierda para sello
+    doc.text("Sello", 100, doc.y + 2);
+
+    // Línea derecha para firma
+    doc
+      .moveTo(370, doc.y - 2)
+      .lineTo(500, doc.y - 2)
+      .strokeColor("black")
+      .stroke();
+
+    doc
+      .fontSize(10)
+      .text(`Firma: Dr. ${nombreDoctor}`, 370, doc.y + 2)
+      .text(`Tel: ${doctorPrincipal?.telefono || "-"}`, 370, doc.y + 14);
+
+    doc.moveDown(2);
+
+    doc.end();
+  } catch (error) {
+    logger.error(`❌ Error al exportar historial PDF: ${error.message}`);
+    res.status(500).json({ message: "Error al exportar historial." });
+  }
+};
+
 module.exports = {
   crearHistorial,
   listarHistoriales,
   editarHistorial,
   eliminarHistorial,
+  exportarHistorialPDF,
 };

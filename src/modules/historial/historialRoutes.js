@@ -6,6 +6,7 @@ const {
   listarHistoriales,
   editarHistorial,
   eliminarHistorial,
+  exportarHistorialPDF,
 } = require("./historialController");
 
 const auth = require("../../middlewares/auth");
@@ -58,6 +59,13 @@ router.delete(
   validarRol("admin"),
   validarPropiedadPorId("historial"),
   eliminarHistorial
+);
+
+// Exportar historial en PDF
+router.get(
+  "/exportar/:pacienteId",
+  validarRol("admin", "doctor", "paciente"),
+  exportarHistorialPDF
 );
 
 module.exports = router;

@@ -5,6 +5,7 @@ const {
   listarRecetas,
   editarReceta,
   eliminarReceta,
+  exportarRecetasPDF,
 } = require("./recetaController");
 
 const auth = require("../../middlewares/auth");
@@ -50,6 +51,13 @@ router.delete(
   validarRol("admin"),
   validarPropiedadPorId("receta"),
   eliminarReceta
+);
+
+// 📄 Exportar recetas médicas en PDF
+router.get(
+  "/exportar/:pacienteId",
+  validarRol("admin", "doctor", "paciente"),
+  exportarRecetasPDF
 );
 
 module.exports = router;
