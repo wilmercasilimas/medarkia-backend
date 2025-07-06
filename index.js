@@ -50,7 +50,8 @@ process.on("uncaughtException", (err) => {
 });
 
 // Puerto
-const PORT = process.env.PORT || 3900;
+const PORT = process.env.PORT;
 app.listen(PORT, () => {
   logger.info(`🚀 Servidor corriendo en el puerto ${PORT}`);
 });
+
