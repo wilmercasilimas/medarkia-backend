@@ -43,7 +43,8 @@ app.use("/api/recetas", require("./src/modules/receta/recetaRoutes"));
 app.use("/api/bloqueos", bloqueoRoutes);
 app.use("/api/auditoria", require("./src/modules/auditoria/auditoriaRoutes"));
 app.use("/api/archivos", require("./src/modules/archivo/archivoRoutes"));
-app.use("/api/ping", require("./src/routes/pingRoutes"));
+app.use("/api", require("./src/routes/pingRoutes"));
+
 
 
 // Middleware de errores no capturados (debe ir después de todas las rutas)
