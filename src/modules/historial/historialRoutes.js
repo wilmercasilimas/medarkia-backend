@@ -1,6 +1,10 @@
 const express = require("express");
 const router = express.Router();
 
+router.get("/ping", (req, res) => {
+  res.status(200).json({ status: "ok", timestamp: new Date() });
+});
+
 const {
   crearHistorial,
   listarHistoriales,
@@ -60,11 +64,6 @@ router.delete(
   validarPropiedadPorId("historial"),
   eliminarHistorial
 );
-
-router.get("/ping", (req, res) => {
-  res.status(200).json({ status: "ok", timestamp: new Date() });
-});
-
 
 // Exportar historial en PDF
 router.get(
