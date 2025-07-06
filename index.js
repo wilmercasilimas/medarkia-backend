@@ -31,6 +31,7 @@ app.use("/api/recetas", require("./src/modules/receta/recetaRoutes"));
 app.use("/api/bloqueos", bloqueoRoutes);
 app.use("/api/auditoria", require("./src/modules/auditoria/auditoriaRoutes"));
 app.use("/api/archivos", require("./src/modules/archivo/archivoRoutes"));
+app.use("/ping", require("./src/routes/pingRoutes"));
 
 
 
