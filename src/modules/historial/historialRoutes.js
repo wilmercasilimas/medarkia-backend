@@ -61,6 +61,11 @@ router.delete(
   eliminarHistorial
 );
 
+router.get("/ping", (req, res) => {
+  res.status(200).json({ status: "ok", timestamp: new Date() });
+});
+
+
 // Exportar historial en PDF
 router.get(
   "/exportar/:pacienteId",
