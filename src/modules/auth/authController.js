@@ -51,8 +51,25 @@ const login = async (req, res) => {
     const token = jwt.sign(
       { id: usuario._id, rol: usuario.rol },
       process.env.JWT_SECRET,
-      { expiresIn: "30d" } // ⏳ Token válido por 30 días
+      { expiresIn: "30d" }
     );
+
+    // Construir avatar de respuesta
+    let avatar = null;
+
+    if (usuario.avatar?.public_id) {
+      // Si tiene avatar personalizado
+      avatar = {
+        public_id: usuario.avatar.public_id,
+        url: `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${usuario.avatar.public_id}.jpg`,
+      };
+    } else {
+      // Si no tiene avatar, usar el genérico
+      avatar = {
+        url: process.env.DEFAULT_AVATAR_URL,
+        public_id: null,
+      };
+    }
 
     res.json({
       token,
@@ -62,7 +79,7 @@ const login = async (req, res) => {
         apellido: usuario.apellido,
         email: usuario.email,
         rol: usuario.rol,
-        avatar: usuario.avatar || null,
+        avatar,
       },
     });
   } catch (error) {
@@ -70,6 +87,7 @@ const login = async (req, res) => {
     res.status(500).json({ message: "Error al iniciar sesión." });
   }
 };
+
 
 module.exports = {
   registrar,
