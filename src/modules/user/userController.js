@@ -88,10 +88,16 @@ const listarUsuarios = async (req, res) => {
       .select("-password")
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
-      .limit(Number(limit));
+      .limit(Number(limit))
+      .lean(); // ✅ Convertir documentos a objetos JS simples
+
+    const usuariosConId = usuarios.map((u) => ({
+      ...u,
+      id: u._id.toString(), // ✅ Agregar campo `id`
+    }));
 
     logger.info("📋 Usuarios listados.");
-    res.json(usuarios);
+    res.json(usuariosConId); // ✅ Enviar los usuarios con `id`
   } catch (error) {
     logger.error("❌ Error al listar usuarios: " + error.message);
     res.status(500).json({ message: "Error al obtener usuarios." });
