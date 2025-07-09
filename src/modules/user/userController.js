@@ -172,8 +172,63 @@ const actualizarUsuario = async (req, res) => {
   }
 };
 
-// Actualizar solo avatarcls
+// Actualizar solo avatar
+const actualizarAvatar = async (req, res) => {
+  try {
+    const { id } = req.params;
 
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      logger.warn("⚠️ ID inválido para actualizar avatar.");
+      return res.status(400).json({ message: "ID inválido." });
+    }
+
+    const archivo = req.file;
+    if (!archivo) {
+      logger.warn("⚠️ No se subió archivo para actualizar avatar.");
+      return res.status(400).json({ message: "No se subió ningún archivo." });
+    }
+
+    const usuario = await User.findById(id);
+if (!usuario) {
+  logger.warn("⚠️ Usuario no encontrado para actualizar avatar.");
+  return res.status(404).json({ message: "Usuario no encontrado." });
+}
+
+// ✅ Primero calcular roles
+const esPropietario = usuario._id.toString() === req.user._id.toString();
+const esAdmin = req.user.rol === "admin";
+
+// 🔐 Protección del super admin
+if (usuario.protegido && !esPropietario) {
+  logger.warn("⚠️ Intento de cambiar avatar de usuario protegido.");
+  return res.status(403).json({
+    message: "Este usuario está protegido. Solo él puede cambiar su avatar.",
+  });
+}
+
+// 🔒 Validación general: solo dueño o admin
+if (!esPropietario && !esAdmin) {
+  logger.warn("⛔ Acceso denegado para cambiar avatar de otro usuario.");
+  return res.status(403).json({
+    message: "No tienes permiso para modificar el avatar de este usuario.",
+  });
+}
+
+
+    usuario.avatar = await procesarAvatar(archivo, usuario.avatar);
+    await usuario.save();
+
+    logger.info(`🖼️ Avatar actualizado: ${id}`);
+
+    res.json({
+      message: "Avatar actualizado correctamente.",
+      avatar: usuario.avatar,
+    });
+  } catch (error) {
+    logger.error("❌ Error al actualizar avatar: " + error.message);
+    res.status(500).json({ message: "Error al actualizar avatar." });
+  }
+};
 
 // Eliminar usuario
 const eliminarUsuario = async (req, res) => {
