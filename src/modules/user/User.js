@@ -65,6 +65,10 @@ const userSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
     },
+    protegido: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true, // createdAt y updatedAt

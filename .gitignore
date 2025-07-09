@@ -7,3 +7,4 @@ uploads/
 /logs/
 logs/
 *.log
+generarHash.js
