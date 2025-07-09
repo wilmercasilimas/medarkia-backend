@@ -86,7 +86,7 @@ const listarUsuarios = async (req, res) => {
 
     const usuarios = await User.find(filtro)
       .select("-password")
-      .sort({ apellido: 1, nombre: 1 })
+      .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(Number(limit))
       .lean(); // ✅ Convertir documentos a objetos JS simples
