@@ -151,8 +151,8 @@ const actualizarUsuario = async (req, res) => {
       usuario.rol = rol;
     }
 
-    if (password) {
-      usuario.password = await bcrypt.hash(password, 10);
+    if (password_nueva) {
+      usuario.password = password_nueva.trim();
     }
 
     if (req.file) {
@@ -350,7 +350,8 @@ const cambiarPassword = async (req, res) => {
       return res.status(401).json({ message: "Contraseña actual incorrecta." });
     }
 
-    usuario.password = await bcrypt.hash(password_nueva, 10);
+    // ✅ Activar pre("save")
+    usuario.password = password_nueva;
     await usuario.save();
 
     res.json({ message: "Contraseña actualizada correctamente." });
@@ -358,6 +359,7 @@ const cambiarPassword = async (req, res) => {
     res.status(500).json({ message: "Error al cambiar contraseña." });
   }
 };
+
 
 module.exports = {
   crearUsuario,

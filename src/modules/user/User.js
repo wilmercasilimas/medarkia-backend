@@ -78,6 +78,7 @@ const userSchema = new mongoose.Schema(
 // 🔐 Hashear contraseña antes de guardar
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
+  console.log("💥 pre-save: contraseña va a ser hasheada");
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
   next();
