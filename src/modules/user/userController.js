@@ -141,17 +141,6 @@ const actualizarUsuario = async (req, res) => {
 
     const { nombre, apellido, email, password, telefono, rol } = req.body;
     
-    // 🛠 LOG: Verificar payload recibido
-    logger.info("📦 Payload recibido en actualizarUsuario:", {
-      nombre,
-      apellido,
-      email,
-      telefono,
-      rol,
-      password,
-    });
-
-    
     if (nombre) usuario.nombre = nombre;
     if (apellido) usuario.apellido = apellido;
     if (email) usuario.email = email;
