@@ -139,7 +139,7 @@ const actualizarUsuario = async (req, res) => {
       });
     }
 
-    const { nombre, apellido, email, password, telefono, rol } = req.body;
+    const { nombre, apellido, email, password, telefono, rol, password_nueva } = req.body;
 
     if (nombre) usuario.nombre = nombre;
     if (apellido) usuario.apellido = apellido;
