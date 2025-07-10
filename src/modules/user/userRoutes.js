@@ -6,13 +6,19 @@ const {
   actualizarUsuario,
   eliminarUsuario,
   actualizarAvatar,
-  asignarDoctor
+  asignarDoctor,
+  cambiarPassword
 } = require("./userController");
 
 const auth = require("../../middlewares/auth");
 const validarRol = require("../../middlewares/validarRol");
 const upload = require("../../middlewares/multer");
 const validarUsuario = require("./validarUsuario");
+const validarPassword = require("./validarPassword");
+
+// Ruta: Cambiar contraseña (requiere token)
+router.put("/cambiar-password", auth, validarPassword, cambiarPassword);
+
 
 // 🔐 Todas las rutas requieren autenticación
 router.use(auth);
@@ -55,5 +61,8 @@ router.put(
 
 // ❌ Eliminar usuario (solo admin)
 router.delete("/:id", validarRol("admin"), eliminarUsuario);
+
+
+
 
 module.exports = router;

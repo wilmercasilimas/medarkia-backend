@@ -140,7 +140,7 @@ const actualizarUsuario = async (req, res) => {
     }
 
     const { nombre, apellido, email, password, telefono, rol } = req.body;
-    
+
     if (nombre) usuario.nombre = nombre;
     if (apellido) usuario.apellido = apellido;
     if (email) usuario.email = email;
@@ -189,31 +189,31 @@ const actualizarAvatar = async (req, res) => {
     }
 
     const usuario = await User.findById(id);
-if (!usuario) {
-  logger.warn("⚠️ Usuario no encontrado para actualizar avatar.");
-  return res.status(404).json({ message: "Usuario no encontrado." });
-}
+    if (!usuario) {
+      logger.warn("⚠️ Usuario no encontrado para actualizar avatar.");
+      return res.status(404).json({ message: "Usuario no encontrado." });
+    }
 
-// ✅ Primero calcular roles
-const esPropietario = usuario._id.toString() === req.user._id.toString();
-const esAdmin = req.user.rol === "admin";
+    // ✅ Primero calcular roles
+    const esPropietario = usuario._id.toString() === req.user._id.toString();
+    const esAdmin = req.user.rol === "admin";
 
-// 🔐 Protección del super admin
-if (usuario.protegido && !esPropietario) {
-  logger.warn("⚠️ Intento de cambiar avatar de usuario protegido.");
-  return res.status(403).json({
-    message: "Este usuario está protegido. Solo él puede cambiar su avatar.",
-  });
-}
+    // 🔐 Protección del super admin
+    if (usuario.protegido && !esPropietario) {
+      logger.warn("⚠️ Intento de cambiar avatar de usuario protegido.");
+      return res.status(403).json({
+        message:
+          "Este usuario está protegido. Solo él puede cambiar su avatar.",
+      });
+    }
 
-// 🔒 Validación general: solo dueño o admin
-if (!esPropietario && !esAdmin) {
-  logger.warn("⛔ Acceso denegado para cambiar avatar de otro usuario.");
-  return res.status(403).json({
-    message: "No tienes permiso para modificar el avatar de este usuario.",
-  });
-}
-
+    // 🔒 Validación general: solo dueño o admin
+    if (!esPropietario && !esAdmin) {
+      logger.warn("⛔ Acceso denegado para cambiar avatar de otro usuario.");
+      return res.status(403).json({
+        message: "No tienes permiso para modificar el avatar de este usuario.",
+      });
+    }
 
     usuario.avatar = await procesarAvatar(archivo, usuario.avatar);
     await usuario.save();
@@ -248,11 +248,9 @@ const eliminarUsuario = async (req, res) => {
 
     if (usuario.protegido) {
       logger.warn("⚠️ Intento de eliminar usuario protegido.");
-      return res
-        .status(403)
-        .json({
-          message: "Este usuario está protegido y no puede ser eliminado.",
-        });
+      return res.status(403).json({
+        message: "Este usuario está protegido y no puede ser eliminado.",
+      });
     }
 
     if (usuario.rol === "admin") {
@@ -328,6 +326,39 @@ const asignarDoctor = async (req, res) => {
   }
 };
 
+const cambiarPassword = async (req, res) => {
+  try {
+    const usuarioId = req.user._id;
+    const { password_actual, password_nueva } = req.body;
+
+    if (!password_actual || !password_nueva) {
+      return res
+        .status(400)
+        .json({ message: "Se requieren ambas contraseñas." });
+    }
+
+    const usuario = await User.findById(usuarioId);
+    if (!usuario) {
+      return res.status(404).json({ message: "Usuario no encontrado." });
+    }
+
+    const passwordCorrecta = await bcrypt.compare(
+      password_actual,
+      usuario.password
+    );
+    if (!passwordCorrecta) {
+      return res.status(401).json({ message: "Contraseña actual incorrecta." });
+    }
+
+    usuario.password = await bcrypt.hash(password_nueva, 10);
+    await usuario.save();
+
+    res.json({ message: "Contraseña actualizada correctamente." });
+  } catch (error) {
+    res.status(500).json({ message: "Error al cambiar contraseña." });
+  }
+};
+
 module.exports = {
   crearUsuario,
   listarUsuarios,
@@ -335,4 +366,5 @@ module.exports = {
   eliminarUsuario,
   actualizarAvatar,
   asignarDoctor,
+  cambiarPassword,
 };
