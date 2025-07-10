@@ -146,6 +146,9 @@ const actualizarUsuario = async (req, res) => {
     if (email) usuario.email = email;
     if (telefono) usuario.telefono = telefono;
 
+    console.log("🔍 Password recibido:", password);
+
+
     // ✅ Solo admin puede cambiar el rol
     if (rol && esAdmin) {
       usuario.rol = rol;
