@@ -26,22 +26,20 @@ const crearUsuario = async (req, res) => {
     const avatar = await procesarAvatar(req.file, null);
 
     // 🔤 Capitalizar nombre y apellido
-    const capitalizar = (texto = "") =>
+    const capitalizar = (texto) =>
       texto
-        .toLowerCase()
         .trim()
-        .split(" ")
-        .filter(Boolean)
-        .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
-        .join(" ");
+        .toLowerCase()
+        .replace(/\b\w/g, (l) => l.toUpperCase());
 
-    const nombreNormalizado = capitalizar(nombre);
-    const apellidoNormalizado = capitalizar(apellido);
+    const nombreCapitalizado = capitalizar(nombre);
+    const apellidoCapitalizado = capitalizar(apellido);
+    const cedulaLimpia = cedula.replace(/\D/g, "");
 
     const nuevoUsuario = new User({
-      nombre: nombreNormalizado,
-      apellido: apellidoNormalizado,
-      cedula,
+      nombre: nombreCapitalizado,
+      apellido: apellidoCapitalizado,
+      cedula: cedulaLimpia,
       email,
       password,
       telefono,
