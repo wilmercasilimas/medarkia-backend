@@ -25,9 +25,22 @@ const crearUsuario = async (req, res) => {
 
     const avatar = await procesarAvatar(req.file, null);
 
+    // 🔤 Capitalizar nombre y apellido
+    const capitalizar = (texto = "") =>
+      texto
+        .toLowerCase()
+        .trim()
+        .split(" ")
+        .filter(Boolean)
+        .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+        .join(" ");
+
+    const nombreNormalizado = capitalizar(nombre);
+    const apellidoNormalizado = capitalizar(apellido);
+
     const nuevoUsuario = new User({
-      nombre,
-      apellido,
+      nombre: nombreNormalizado,
+      apellido: apellidoNormalizado,
       cedula,
       email,
       password,
@@ -139,10 +152,21 @@ const actualizarUsuario = async (req, res) => {
       });
     }
 
-    const { nombre, apellido, email, password, telefono, rol, password_nueva } = req.body;
+    const { nombre, apellido, email, password, telefono, rol, password_nueva } =
+      req.body;
 
-    if (nombre) usuario.nombre = nombre;
-    if (apellido) usuario.apellido = apellido;
+    // 🔤 Capitalizar si se envían
+    const capitalizar = (texto = "") =>
+      texto
+        .toLowerCase()
+        .trim()
+        .split(" ")
+        .filter(Boolean)
+        .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+        .join(" ");
+
+    if (nombre) usuario.nombre = capitalizar(nombre);
+    if (apellido) usuario.apellido = capitalizar(apellido);
     if (email) usuario.email = email;
     if (telefono) usuario.telefono = telefono;
 
@@ -359,7 +383,6 @@ const cambiarPassword = async (req, res) => {
     res.status(500).json({ message: "Error al cambiar contraseña." });
   }
 };
-
 
 module.exports = {
   crearUsuario,
