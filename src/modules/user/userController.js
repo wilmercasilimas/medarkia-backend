@@ -99,6 +99,10 @@ const listarUsuarios = async (req, res) => {
     }
 
     const usuarios = await User.find(filtro)
+      .populate({
+        path: "asociado_a",
+        select: "nombre apellido", // 👈 Solo trae nombre y apellido del doctor
+      })
       .select("-password")
       .sort({ apellido: 1, nombre: 1 })
       .skip((page - 1) * limit)
