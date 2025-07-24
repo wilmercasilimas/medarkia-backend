@@ -75,7 +75,10 @@ const crearUsuario = async (req, res) => {
 // Listar usuarios
 const listarUsuarios = async (req, res) => {
   try {
-    const { rol, cedula, texto, page = 1, limit = 10 } = req.query;
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit) || 10, 1), 100); // máximo 100
+    const { rol, cedula, texto } = req.query;
+
     const filtro = {};
 
     if (rol) {
