@@ -111,7 +111,13 @@ const listarUsuarios = async (req, res) => {
     }));
 
     logger.info("📋 Usuarios listados.");
-    res.json(usuariosConId); // ✅ Enviar los usuarios con `id`
+    const total = await User.countDocuments(filtro);
+
+    res.json({
+      usuarios: usuariosConId,
+      total,
+    });
+    // ✅ Enviar los usuarios con `id`
   } catch (error) {
     logger.error("❌ Error al listar usuarios: " + error.message);
     res.status(500).json({ message: "Error al obtener usuarios." });
