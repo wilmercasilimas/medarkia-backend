@@ -318,8 +318,8 @@ const eliminarUsuario = async (req, res) => {
 
 const asignarDoctor = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { doctorId } = req.body;
+    const { id } = req.params; // ID del asistente
+    const { doctorId } = req.body; // ID del doctor a asignar
 
     if (
       !mongoose.Types.ObjectId.isValid(id) ||
@@ -346,6 +346,15 @@ const asignarDoctor = async (req, res) => {
         .json({ message: "Doctor no encontrado o no es rol doctor." });
     }
 
+    // ✅ Validación adicional: Si el usuario autenticado es doctor, solo puede asignarse a sí mismo
+    const esDoctor = req.user.rol === "doctor";
+    if (esDoctor && doctor._id.toString() !== req.user._id.toString()) {
+      logger.warn("⛔ Doctor intentando asignar a otro doctor.");
+      return res
+        .status(403)
+        .json({ message: "Solo puedes asignarte a ti mismo como doctor." });
+    }
+
     asistente.asociado_a = doctorId;
     await asistente.save();
 
@@ -360,6 +369,7 @@ const asignarDoctor = async (req, res) => {
     res.status(500).json({ message: "Error al asignar doctor al asistente." });
   }
 };
+
 
 const cambiarPassword = async (req, res) => {
   try {
