@@ -67,3 +67,4 @@ const PORT = process.env.PORT || 3900;
 app.listen(PORT, () => {
   logger.info(`🚀 Servidor corriendo en el puerto ${PORT}`);
 });
+// Forzar redeploy en Render
