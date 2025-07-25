@@ -54,18 +54,20 @@ const crearUsuario = async (req, res) => {
     logger.info(`✅ Usuario creado: ${email}`);
 
     res.status(201).json({
-      message: "Usuario creado correctamente.",
-      usuario: {
-        id: nuevoUsuario._id,
-        nombre: nuevoUsuario.nombre,
-        apellido: nuevoUsuario.apellido,
-        cedula: nuevoUsuario.cedula,
-        email: nuevoUsuario.email,
-        telefono: nuevoUsuario.telefono,
-        rol: nuevoUsuario.rol,
-        avatar: nuevoUsuario.avatar,
-      },
-    });
+  message: "Usuario creado correctamente.",
+  usuario: {
+    id: nuevoUsuario._id,
+    nombre: nuevoUsuario.nombre,
+    apellido: nuevoUsuario.apellido,
+    cedula: nuevoUsuario.cedula,
+    email: nuevoUsuario.email,
+    telefono: nuevoUsuario.telefono,
+    rol: nuevoUsuario.rol,
+    avatar: nuevoUsuario.avatar,
+    asociado_a: nuevoUsuario.asociado_a || null, // ✅ agregar este campo
+  },
+});
+
   } catch (error) {
     logger.error("❌ Error al crear usuario: " + error.message);
     res.status(500).json({ message: "Error al crear el usuario." });
