@@ -54,20 +54,19 @@ const crearUsuario = async (req, res) => {
     logger.info(`✅ Usuario creado: ${email}`);
 
     res.status(201).json({
-  message: "Usuario creado correctamente.",
-  usuario: {
-    id: nuevoUsuario._id,
-    nombre: nuevoUsuario.nombre,
-    apellido: nuevoUsuario.apellido,
-    cedula: nuevoUsuario.cedula,
-    email: nuevoUsuario.email,
-    telefono: nuevoUsuario.telefono,
-    rol: nuevoUsuario.rol,
-    avatar: nuevoUsuario.avatar,
-    asociado_a: nuevoUsuario.asociado_a || null, // ✅ agregar este campo
-  },
-});
-
+      message: "Usuario creado correctamente.",
+      usuario: {
+        id: nuevoUsuario._id,
+        nombre: nuevoUsuario.nombre,
+        apellido: nuevoUsuario.apellido,
+        cedula: nuevoUsuario.cedula,
+        email: nuevoUsuario.email,
+        telefono: nuevoUsuario.telefono,
+        rol: nuevoUsuario.rol,
+        avatar: nuevoUsuario.avatar,
+        asociado_a: nuevoUsuario.asociado_a || null, // ✅ agregar este campo
+      },
+    });
   } catch (error) {
     logger.error("❌ Error al crear usuario: " + error.message);
     res.status(500).json({ message: "Error al crear el usuario." });
@@ -322,19 +321,14 @@ const eliminarUsuario = async (req, res) => {
 const asignarDoctor = async (req, res) => {
   try {
     const { id } = req.params; // ID del asistente
-    const { doctorId } = req.body; // ID del doctor a asignar
+    const { doctorId } = req.body; // Puede ser null o vacío
 
-    if (
-      !mongoose.Types.ObjectId.isValid(id) ||
-      !mongoose.Types.ObjectId.isValid(doctorId)
-    ) {
-      logger.warn("⚠️ ID inválido para asignar doctor.");
-      return res.status(400).json({ message: "ID inválido." });
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      logger.warn("⚠️ ID de asistente inválido.");
+      return res.status(400).json({ message: "ID del asistente inválido." });
     }
 
     const asistente = await User.findById(id);
-    const doctor = await User.findById(doctorId);
-
     if (!asistente || asistente.rol !== "asistente") {
       logger.warn("⚠️ Asistente inválido para asignar doctor.");
       return res
@@ -342,6 +336,24 @@ const asignarDoctor = async (req, res) => {
         .json({ message: "Asistente no encontrado o no es rol asistente." });
     }
 
+    // ✅ Desasignar doctor si no se envía ninguno
+    if (!doctorId) {
+      asistente.asociado_a = null;
+      await asistente.save();
+      logger.info(`🔗 Doctor desasignado del asistente: ${id}`);
+      return res.json({
+        message: "Doctor desasignado correctamente.",
+        asistente,
+      });
+    }
+
+    // Validar doctor solo si se envía un ID
+    if (!mongoose.Types.ObjectId.isValid(doctorId)) {
+      logger.warn("⚠️ ID de doctor inválido.");
+      return res.status(400).json({ message: "ID de doctor inválido." });
+    }
+
+    const doctor = await User.findById(doctorId);
     if (!doctor || doctor.rol !== "doctor") {
       logger.warn("⚠️ Doctor inválido para asignación.");
       return res
@@ -349,7 +361,6 @@ const asignarDoctor = async (req, res) => {
         .json({ message: "Doctor no encontrado o no es rol doctor." });
     }
 
-    // ✅ Validación adicional: Si el usuario autenticado es doctor, solo puede asignarse a sí mismo
     const esDoctor = req.user.rol === "doctor";
     if (esDoctor && doctor._id.toString() !== req.user._id.toString()) {
       logger.warn("⛔ Doctor intentando asignar a otro doctor.");
