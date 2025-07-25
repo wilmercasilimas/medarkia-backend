@@ -82,6 +82,7 @@ const listarUsuarios = async (req, res) => {
     const { rol, cedula, texto } = req.query;
 
     const filtro = {};
+    filtro.oculto = { $ne: true }; // 🔒 Excluir usuarios ocultos
 
     if (rol) {
       if (!["admin", "doctor", "asistente", "paciente"].includes(rol)) {
