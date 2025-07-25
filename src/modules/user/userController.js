@@ -46,6 +46,7 @@ const crearUsuario = async (req, res) => {
       rol,
       avatar,
       creado_por: req.user?._id || null,
+      asociado_a: rol === "asistente" ? req.body.asociado_a : undefined,
     });
 
     await nuevoUsuario.save();
@@ -369,7 +370,6 @@ const asignarDoctor = async (req, res) => {
     res.status(500).json({ message: "Error al asignar doctor al asistente." });
   }
 };
-
 
 const cambiarPassword = async (req, res) => {
   try {
