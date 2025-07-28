@@ -291,7 +291,9 @@ const listarCitas = async (req, res) => {
         return res.status(400).json({ message: "Formato de fecha inválido." });
       }
 
-      filtro.fecha = parsedFecha;
+      const inicioDia = new Date(parsedFecha.setHours(0, 0, 0, 0));
+      const finDia = new Date(parsedFecha.setHours(23, 59, 59, 999));
+      filtro.fecha = { $gte: inicioDia, $lte: finDia };
     }
 
     // Filtro por usuario o cédula (paciente)
