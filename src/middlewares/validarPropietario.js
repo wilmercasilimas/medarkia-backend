@@ -51,9 +51,15 @@ const validarPropietarioRecurso = (tipo) => {
           break;
 
         case "cita":
-         recurso = await Cita.findById(id)
-  .populate({ path: "doctor", populate: { path: "usuario", select: "_id" } })
-  .populate({ path: "paciente", populate: { path: "usuario", select: "_id" } });
+          recurso = await Cita.findById(id)
+            .populate({
+              path: "doctor",
+              populate: { path: "usuario", select: "_id" },
+            })
+            .populate({
+              path: "paciente",
+              populate: { path: "usuario", select: "_id" },
+            });
 
           if (!recurso) {
             return res.status(404).json({ message: "Cita no encontrada." });
@@ -67,7 +73,8 @@ const validarPropietarioRecurso = (tipo) => {
           const esAsistente =
             rol === "asistente" && recurso.doctor?.asistentes?.includes(userId);
           const esPaciente =
-            rol === "paciente" && recurso.paciente?.toString() === userId;
+            rol === "paciente" &&
+            recurso.paciente?.usuario?._id?.toString() === userId;
 
           if (esDoctorAsignado || esAsistente || esPaciente) {
             break;
