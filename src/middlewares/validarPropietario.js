@@ -51,20 +51,24 @@ const validarPropietarioRecurso = (tipo) => {
           break;
 
         case "cita":
-          recurso = await Cita.findById(id).populate("doctor");
+          recurso = await Cita.findById(id)
+            .populate("doctor")
+            .populate("paciente");
           if (!recurso) {
             return res.status(404).json({ message: "Cita no encontrada." });
           }
 
-          // ✅ Permitir si es el doctor asignado
-          if (req.user.rol === "doctor" &&
-              recurso.doctor?.usuario?.toString() === req.user._id.toString()) {
-            break;
-          }
+          const userId = req.user._id.toString();
+          const rol = req.user.rol;
 
-          // ✅ Permitir si es asistente del doctor asignado
-          if (req.user.rol === "asistente" &&
-              recurso.doctor?.asistentes?.includes(req.user._id)) {
+          const esDoctorAsignado =
+            rol === "doctor" && recurso.doctor?.usuario?.toString() === userId;
+          const esAsistente =
+            rol === "asistente" && recurso.doctor?.asistentes?.includes(userId);
+          const esPaciente =
+            rol === "paciente" && recurso.paciente?.toString() === userId;
+
+          if (esDoctorAsignado || esAsistente || esPaciente) {
             break;
           }
 

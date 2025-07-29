@@ -24,7 +24,7 @@ router.post("/", validarRol("doctor", "asistente"), validarCita, crearCita);
 // Editar cita (requiere ser doctor asignado o asistente asociado)
 router.put(
   "/:id",
-  validarRol("doctor", "asistente"),
+  validarRol("doctor", "asistente", "admin"),
   validarPropietarioRecurso("cita"),
   validarCita,
   editarCita
@@ -33,7 +33,7 @@ router.put(
 // Eliminar cita (requiere ser propietario o admin)
 router.delete(
   "/:id",
-  validarRol("doctor", "asistente", "admin"),
+  validarRol("doctor", "asistente", "admin", "paciente"),
   validarPropietarioRecurso("cita"),
   eliminarCita
 );
