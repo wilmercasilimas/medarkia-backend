@@ -51,9 +51,10 @@ const validarPropietarioRecurso = (tipo) => {
           break;
 
         case "cita":
-          recurso = await Cita.findById(id)
-            .populate("doctor")
-            .populate("paciente");
+         recurso = await Cita.findById(id)
+  .populate({ path: "doctor", populate: { path: "usuario", select: "_id" } })
+  .populate({ path: "paciente", populate: { path: "usuario", select: "_id" } });
+
           if (!recurso) {
             return res.status(404).json({ message: "Cita no encontrada." });
           }
