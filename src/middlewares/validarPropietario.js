@@ -12,7 +12,6 @@ const logger = require("../config/logger");
  */
 const validarPropietarioRecurso = (tipo) => {
   return async (req, res, next) => {
-    console.log("🔍 Entrando en validarPropietarioRecurso:", tipo);
     try {
       const { id } = req.params;
 
@@ -62,23 +61,12 @@ const validarPropietarioRecurso = (tipo) => {
               populate: { path: "usuario", select: "_id" },
             });
 
-            console.log("🧠 Cita encontrada (con populate):", JSON.stringify(recurso, null, 2));
-
-
           if (!recurso) {
             return res.status(404).json({ message: "Cita no encontrada." });
           }
 
           const userId = req.user._id.toString();
           const rol = req.user.rol;
-
-          console.log("VALIDANDO:", {
-    rol,
-    userId,
-    doctor: recurso.doctor?.usuario?._id?.toString(),
-    paciente: recurso.paciente?.usuario?._id?.toString(),
-    tokenPayload: req.user,
-  });
 
           const esDoctorAsignado =
             rol === "doctor" && recurso.doctor?.usuario?.toString() === userId;

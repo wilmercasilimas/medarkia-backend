@@ -148,7 +148,6 @@ const crearCita = async (req, res) => {
 };
 
 const editarCita = async (req, res) => {
-  console.log("📥 LLEGÓ A editarCita:", req.params.id);
   try {
     const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
