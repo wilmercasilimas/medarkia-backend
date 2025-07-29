@@ -12,6 +12,7 @@ const logger = require("../config/logger");
  */
 const validarPropietarioRecurso = (tipo) => {
   return async (req, res, next) => {
+    console.log("🔍 Entrando en validarPropietarioRecurso:", tipo);
     try {
       const { id } = req.params;
 
