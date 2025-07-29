@@ -62,6 +62,9 @@ const validarPropietarioRecurso = (tipo) => {
               populate: { path: "usuario", select: "_id" },
             });
 
+            console.log("🧠 Cita encontrada (con populate):", JSON.stringify(recurso, null, 2));
+
+
           if (!recurso) {
             return res.status(404).json({ message: "Cita no encontrada." });
           }
