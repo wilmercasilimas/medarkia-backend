@@ -69,17 +69,20 @@ const validarPropietarioRecurso = (tipo) => {
           const rol = req.user.rol;
 
           console.log("🔎 VALIDANDO:", {
-    rol,
-    userId,
-    doctor: recurso.doctor?.usuario?._id?.toString(),
-    paciente: recurso.paciente?.usuario?._id?.toString(),
-    tokenPayload: req.user,
-  });
+            rol,
+            userId,
+            doctor: recurso.doctor?.usuario?._id?.toString(),
+            paciente: recurso.paciente?.usuario?._id?.toString(),
+            tokenPayload: req.user,
+          });
 
           const esDoctorAsignado =
-            rol === "doctor" && recurso.doctor?.usuario?.toString() === userId;
+            rol === "doctor" &&
+            recurso.doctor?.usuario?._id?.toString() === userId;
+
           const esAsistente =
             rol === "asistente" && recurso.doctor?.asistentes?.includes(userId);
+
           const esPaciente =
             rol === "paciente" &&
             recurso.paciente?.usuario?._id?.toString() === userId;
